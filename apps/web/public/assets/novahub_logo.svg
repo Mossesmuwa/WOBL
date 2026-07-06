@@ -1,54 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 52" width="320" height="52">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 180" width="640" height="180">
   <defs>
-    <linearGradient id="ng" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"   stop-color="#E8C97A"/>
-      <stop offset="55%"  stop-color="#C9A84C"/>
-      <stop offset="100%" stop-color="#9B7520"/>
+    <linearGradient id="brandGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F4D789"/>
+      <stop offset="45%" stop-color="#D0A645"/>
+      <stop offset="100%" stop-color="#8C6119"/>
     </linearGradient>
-    <filter id="ng2" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.2" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <linearGradient id="brandGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1F1F24"/>
+      <stop offset="100%" stop-color="#0A0A0D"/>
+    </linearGradient>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
     <style>
-      .nh-hub { fill: #1D1D1F; }
-      @media (prefers-color-scheme: dark) { .nh-hub { fill: #F2F2F7; } }
-      [data-theme="dark"] .nh-hub { fill: #F2F2F7; }
-      [data-theme="light"] .nh-hub { fill: #1D1D1F; }
+      .brand-text { fill: #0F1117; }
+      .brand-sub { fill: #7B7E86; }
+      @media (prefers-color-scheme: dark) { .brand-text { fill: #F7F7FA; } .brand-sub { fill: #A7AAB3; } }
+      [data-theme="dark"] .brand-text { fill: #F7F7FA; }
+      [data-theme="dark"] .brand-sub { fill: #A7AAB3; }
+      [data-theme="light"] .brand-text { fill: #0F1117; }
+      [data-theme="light"] .brand-sub { fill: #7B7E86; }
     </style>
   </defs>
 
-  <!-- Icon: dark pill -->
-  <rect x="0" y="2" width="48" height="48" rx="12" fill="#1E1812"/>
-  <rect x="0" y="2" width="48" height="48" rx="12" fill="none" stroke="url(#ng)" stroke-width="1" opacity="0.45"/>
+  <rect x="16" y="24" width="132" height="132" rx="36" fill="url(#brandGlow)" stroke="url(#brandGold)" stroke-width="2"/>
+  <circle cx="82" cy="90" r="46" fill="none" stroke="url(#brandGold)" stroke-width="3" opacity="0.95"/>
+  <path d="M82 46 L121 66 L121 102 L82 122 L43 102 L43 66 Z" fill="none" stroke="url(#brandGold)" stroke-width="3.4" filter="url(#softGlow)"/>
+  <circle cx="82" cy="68" r="5" fill="url(#brandGold)"/>
+  <circle cx="56" cy="90" r="4.5" fill="url(#brandGold)"/>
+  <circle cx="108" cy="90" r="4.5" fill="url(#brandGold)"/>
+  <line x1="82" y1="68" x2="56" y2="90" stroke="url(#brandGold)" stroke-width="2.2" opacity="0.85"/>
+  <line x1="82" y1="68" x2="108" y2="90" stroke="url(#brandGold)" stroke-width="2.2" opacity="0.85"/>
+  <line x1="56" y1="90" x2="108" y2="90" stroke="url(#brandGold)" stroke-width="2" opacity="0.6"/>
 
-  <!-- Network nodes -->
-  <circle cx="24" cy="12" r="3.5" fill="url(#ng)" filter="url(#ng2)"/>
-  <circle cx="11" cy="32" r="3"   fill="url(#ng)" filter="url(#ng2)"/>
-  <circle cx="37" cy="32" r="3"   fill="url(#ng)" filter="url(#ng2)"/>
-  <circle cx="24" cy="42" r="2.5" fill="url(#ng)" opacity="0.7"/>
-
-  <!-- Network lines -->
-  <line x1="24" y1="12" x2="11" y2="32" stroke="url(#ng)" stroke-width="1.4" opacity="0.55"/>
-  <line x1="24" y1="12" x2="37" y2="32" stroke="url(#ng)" stroke-width="1.4" opacity="0.55"/>
-  <line x1="11" y1="32" x2="37" y2="32" stroke="url(#ng)" stroke-width="1.2" opacity="0.35"/>
-  <line x1="11" y1="32" x2="24" y2="42" stroke="url(#ng)" stroke-width="1.1" opacity="0.38"/>
-  <line x1="37" y1="32" x2="24" y2="42" stroke="url(#ng)" stroke-width="1.1" opacity="0.38"/>
-
-  <!-- Nova (gold) -->
-  <text
-    x="60" y="40"
-    font-family="'SF Pro Display','Inter','Helvetica Neue',Arial,sans-serif"
-    font-size="32"
-    font-weight="800"
-    letter-spacing="-1"
-    fill="url(#ng)">Nova</text>
-
-  <!-- Hub (adapts to theme) -->
-  <text
-    x="183" y="40"
-    font-family="'SF Pro Display','Inter','Helvetica Neue',Arial,sans-serif"
-    font-size="32"
-    font-weight="900"
-    letter-spacing="-1"
-    class="nh-hub">Hub</text>
+  <text x="176" y="96" font-family="'Inter','Segoe UI',sans-serif" font-size="54" font-weight="800" letter-spacing="-1.6" class="brand-text">Nova</text>
+  <text x="326" y="96" font-family="'Inter','Segoe UI',sans-serif" font-size="54" font-weight="800" letter-spacing="-1.6" fill="url(#brandGold)">Hub</text>
+  <text x="176" y="124" font-family="'Inter','Segoe UI',sans-serif" font-size="16" font-weight="600" letter-spacing="4" class="brand-sub">INTELLIGENCE PLATFORM</text>
 </svg>

@@ -61,21 +61,20 @@ export default function Footer() {
         >
           {/* Brand section */}
           <div>
-            <h3
+            <div
               style={{
-                fontSize: 24,
-                fontWeight: 900,
-                color: colors.gold,
-                margin: 0,
-                marginBottom: 12,
-                letterSpacing: "-0.02em",
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: 10,
+                marginBottom: 12,
               }}
             >
-              <span>📊</span> Platform
-            </h3>
+              <img
+                src="/assets/novahub_logo.svg"
+                alt="NovaHub"
+                style={{ height: 34, width: "auto" }}
+              />
+            </div>
             <p
               style={{
                 fontSize: 13,
@@ -202,7 +201,7 @@ export default function Footer() {
               color: colors.t3,
             }}
           >
-            <div>© {currentYear} Platform. All rights reserved.</div>
+            <div>© {currentYear} NovaHub. All rights reserved.</div>
 
             {/* Status indicator */}
             <div

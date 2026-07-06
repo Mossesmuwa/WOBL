@@ -6,6 +6,13 @@ export default function Document() {
       <Head>
         {/* 1. Fix for TMDB Image Blocking (OpaqueResponseBlocking) */}
         <meta name="referrer" content="strict-origin-when-cross-origin" />
+        <link
+          rel="icon"
+          href="/assets/novahub_favicon.svg"
+          type="image/svg+xml"
+        />
+        <link rel="shortcut icon" href="/assets/novahub_favicon.svg" />
+        <link rel="apple-touch-icon" href="/assets/novahub_favicon.svg" />
 
         {/* 2. Optimized Font Loading */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -44,4 +51,3 @@ export default function Document() {
     </Html>
   );
 }
-
