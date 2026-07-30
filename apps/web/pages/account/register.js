@@ -1,7 +1,8 @@
-﻿import { useState, useEffect } from "react";
+﻿// pages/account/signup.js
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { motion, AnimatePresence } from "framer-motion";
+import { colors } from "shared/lib/design";
 import SEO from "../../components/SEO";
 import * as Auth from "shared/lib/auth";
 import { getCurrentUser } from "shared/lib/supabase";
@@ -16,7 +17,7 @@ export default function RegisterPage() {
   const [ok, setOk] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Auto-redirect if already logged in
+  // Auto-redirect if user has an active session
   useEffect(() => {
     getCurrentUser().then((u) => {
       if (u) router.replace("/account/dashboard");
@@ -55,276 +56,658 @@ export default function RegisterPage() {
 
   return (
     <>
-      <SEO title="Create Account — NovaHub" />
+      <SEO title="Create Account — Intelligence Platform" />
 
-      <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 text-slate-100 relative overflow-hidden font-sans py-12 px-4">
-        {/* Background Glows */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-amber-500/15 rounded-full blur-[120px] pointer-events-none" />
+      <div
+        style={{
+          background: colors.bg || "#0b0f17",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "40px 20px",
+          position: "relative",
+          overflow: "hidden",
+          fontFamily: "sans-serif",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Ambient Light Glows */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-10%",
+            left: "-10%",
+            width: 500,
+            height: 500,
+            borderRadius: "50%",
+            background: colors.gold
+              ? `${colors.gold}15`
+              : "rgba(245, 158, 11, 0.1)",
+            filter: "blur(140px)",
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-10%",
+            right: "-10%",
+            width: 450,
+            height: 450,
+            borderRadius: "50%",
+            background: "rgba(59, 130, 246, 0.1)",
+            filter: "blur(140px)",
+            pointerEvents: "none",
+          }}
+        />
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 rounded-3xl border border-white/10 bg-slate-900/40 backdrop-blur-xl shadow-2xl overflow-hidden z-10"
+        {/* Main Card Container */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 920,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+            background: colors.bg2 || "#131924",
+            borderRadius: 24,
+            border: `1px solid ${colors.bg3 || "rgba(255,255,255,0.1)"}`,
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(16px)",
+            overflow: "hidden",
+            zIndex: 1,
+          }}
         >
-          {/* LEFT PANEL: Brand Perks (45%) */}
-          <div className="lg:col-span-5 p-8 lg:p-12 border-b lg:border-b-0 lg:border-r border-white/10 flex flex-col justify-between bg-gradient-to-br from-white/5 to-transparent">
+          {/* LEFT PANEL: Perks & Branding */}
+          <div
+            style={{
+              padding: "40px 36px",
+              borderRight: `1px solid ${colors.bg3 || "rgba(255,255,255,0.1)"}`,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              background:
+                "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)",
+            }}
+          >
             <div>
-              <Link
-                href="/"
-                className="flex items-center gap-3 mb-12 group w-fit"
-              >
-                <img
-                  src="/assets/novahub_logo.svg"
-                  alt="NovaHub"
-                  className="h-7 w-auto transition-transform group-hover:scale-105"
-                />
+              <Link href="/" passHref legacyBehavior>
+                <a style={{ display: "inline-block", marginBottom: 32 }}>
+                  <img
+                    src="/assets/novahub_logo.svg"
+                    alt="Logo"
+                    style={{ height: 28, width: "auto" }}
+                  />
+                </a>
               </Link>
 
-              <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight mb-3">
+              <h1
+                style={{
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: colors.t1 || "#fff",
+                  margin: 0,
+                  marginBottom: 8,
+                  letterSpacing: "-0.02em",
+                }}
+              >
                 Create account
               </h1>
-              <p className="text-slate-400 text-sm mb-8">
+              <p
+                style={{
+                  fontSize: 14,
+                  color: colors.t3 || "#94a3b8",
+                  margin: 0,
+                  marginBottom: 32,
+                }}
+              >
                 Free forever. No credit card required.
               </p>
 
               {/* Perks List */}
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 text-xs">
-                  <div className="w-5 h-5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                    ♥
+              <div style={{ display: "grid", gap: 20 }}>
+                {[
+                  {
+                    title: "Unlimited Saves",
+                    desc: "Save as many items as you want",
+                    symbol: "♥",
+                  },
+                  {
+                    title: "AI Recs",
+                    desc: "Personalised to your taste",
+                    symbol: "★",
+                  },
+                  {
+                    title: "Custom Lists",
+                    desc: "Create and share custom collections",
+                    symbol: "⊞",
+                  },
+                  {
+                    title: "Cross-Device Sync",
+                    desc: "Any device, anytime",
+                    symbol: "↻",
+                  },
+                ].map((perk, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 6,
+                        background: colors.gold
+                          ? `${colors.gold}20`
+                          : "rgba(245, 158, 11, 0.15)",
+                        border: `1px solid ${colors.gold ? `${colors.gold}40` : "rgba(245, 158, 11, 0.3)"}`,
+                        color: colors.gold || "#f59e0b",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      {perk.symbol}
+                    </div>
+                    <div>
+                      <strong
+                        style={{
+                          display: "block",
+                          color: colors.t1 || "#fff",
+                          fontSize: 13,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {perk.title}
+                      </strong>
+                      <span
+                        style={{ color: colors.t3 || "#94a3b8", fontSize: 12 }}
+                      >
+                        {perk.desc}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <strong className="block text-slate-200 font-semibold text-sm">
-                      Unlimited Saves
-                    </strong>
-                    <span className="text-slate-400">
-                      Save as many items as you want
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 text-xs">
-                  <div className="w-5 h-5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                    ★
-                  </div>
-                  <div>
-                    <strong className="block text-slate-200 font-semibold text-sm">
-                      AI Recs
-                    </strong>
-                    <span className="text-slate-400">
-                      Personalised to your taste
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 text-xs">
-                  <div className="w-5 h-5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                    ⊞
-                  </div>
-                  <div>
-                    <strong className="block text-slate-200 font-semibold text-sm">
-                      Lists
-                    </strong>
-                    <span className="text-slate-400">
-                      Create and share custom lists
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 text-xs">
-                  <div className="w-5 h-5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                    ↻
-                  </div>
-                  <div>
-                    <strong className="block text-slate-200 font-semibold text-sm">
-                      Sync
-                    </strong>
-                    <span className="text-slate-400">Any device, anytime</span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* RIGHT PANEL: Form (55%) */}
-          <div className="lg:col-span-7 p-8 lg:p-12 flex flex-col justify-center">
-            <AnimatePresence mode="wait">
-              {!ok ? (
-                <motion.div
-                  key="signup-form"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
+          {/* RIGHT PANEL: Registration Form */}
+          <div
+            style={{
+              padding: "40px 36px",
+              display: "flex",
+              flexDirection: "column",
+              justifyCenter: "center",
+            }}
+          >
+            {!ok ? (
+              <>
+                {/* OAuth Provider Buttons */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 10,
+                    marginBottom: 20,
+                  }}
                 >
-                  {/* OAuth Buttons */}
-                  <div className="grid grid-cols-3 gap-2.5 mb-6">
-                    <button
-                      type="button"
-                      onClick={() => Auth.loginWithGoogle()}
-                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium text-slate-200"
-                    >
-                      Google
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => Auth.loginWithGithub()}
-                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium text-slate-200"
-                    >
-                      GitHub
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => Auth.loginWithApple()}
-                      className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-xs font-medium text-slate-200"
-                    >
-                      Apple
-                    </button>
-                  </div>
-
-                  <div className="relative flex items-center justify-center mb-6">
-                    <div className="border-t border-white/10 w-full" />
-                    <span className="bg-slate-900 px-3 text-[11px] text-slate-500 uppercase tracking-wider absolute">
-                      or create with email
-                    </span>
-                  </div>
-
-                  {err && (
-                    <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-                      {err}
-                    </div>
-                  )}
-
-                  <form onSubmit={doRegister} className="space-y-4">
-                    <div>
-                      <label
-                        className="block text-xs font-medium text-slate-300 mb-1.5"
-                        htmlFor="name"
-                      >
-                        Your name
-                      </label>
-                      <input
-                        id="name"
-                        type="text"
-                        placeholder="Moses"
-                        autoComplete="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-slate-950/60 border border-white/10 focus:border-amber-400/80 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition-all duration-200"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        className="block text-xs font-medium text-slate-300 mb-1.5"
-                        htmlFor="email"
-                      >
-                        Email address
-                      </label>
-                      <input
-                        id="email"
-                        type="email"
-                        placeholder="you@example.com"
-                        autoComplete="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-slate-950/60 border border-white/10 focus:border-amber-400/80 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition-all duration-200"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        className="block text-xs font-medium text-slate-300 mb-1.5"
-                        htmlFor="password"
-                      >
-                        Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="At least 8 characters"
-                          autoComplete="new-password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-slate-950/60 border border-white/10 focus:border-amber-400/80 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-600 outline-none transition-all duration-200 pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 top-3.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                  {[
+                    {
+                      name: "Google",
+                      action: () => Auth.loginWithGoogle(),
+                      icon: (
+                        <svg width="15" height="15" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                          />
+                        </svg>
+                      ),
+                    },
+                    {
+                      name: "GitHub",
+                      action: () => Auth.loginWithGithub(),
+                      icon: (
+                        <svg
+                          width="15"
+                          height="15"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {showPassword ? "Hide" : "Show"}
-                        </button>
-                      </div>
-                    </div>
-
+                          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      name: "Apple",
+                      action: () => Auth.loginWithApple(),
+                      icon: (
+                        <svg
+                          width="15"
+                          height="15"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.09c.68-.82 1.13-1.96.99-3.09-1 .04-2.2.67-2.9 1.48-.62.72-1.16 1.88-1.02 3 1.12.09 2.25-.57 2.93-1.39z" />
+                        </svg>
+                      ),
+                    },
+                  ].map((provider) => (
                     <button
-                      type="submit"
+                      key={provider.name}
+                      type="button"
+                      onClick={provider.action}
                       disabled={loading}
-                      className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-semibold text-sm hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-40 disabled:pointer-events-none shadow-lg shadow-amber-500/10 mt-6"
+                      style={{
+                        padding: "10px 8px",
+                        background: colors.bg || "#0b0f17",
+                        border: `1px solid ${colors.bg3 || "rgba(255,255,255,0.1)"}`,
+                        borderRadius: 10,
+                        color: colors.t1 || "#fff",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: loading ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        transition: "all 0.2s ease",
+                        opacity: loading ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!loading)
+                          e.currentTarget.style.borderColor =
+                            colors.gold || "#f59e0b";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!loading)
+                          e.currentTarget.style.borderColor =
+                            colors.bg3 || "rgba(255,255,255,0.1)";
+                      }}
                     >
-                      {loading ? "Creating account…" : "Create Free Account"}
+                      {provider.icon}
+                      {provider.name}
                     </button>
-                  </form>
+                  ))}
+                </div>
 
-                  <p className="text-center text-xs text-slate-500 mt-4 leading-relaxed">
-                    By signing up you agree to our{" "}
-                    <Link
-                      href="/privacy"
-                      className="text-amber-400 hover:underline"
+                {/* Divider */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    marginBottom: 20,
+                  }}
+                >
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      background: colors.bg3 || "rgba(255,255,255,0.1)",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: colors.t3 || "#64748b",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    OR CREATE WITH EMAIL
+                  </span>
+                  <div
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      background: colors.bg3 || "rgba(255,255,255,0.1)",
+                    }}
+                  />
+                </div>
+
+                {/* Error Banner */}
+                {err && (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      background: colors.red
+                        ? `${colors.red}15`
+                        : "rgba(239, 68, 68, 0.1)",
+                      border: `1px solid ${colors.red ? `${colors.red}40` : "rgba(239, 68, 68, 0.3)"}`,
+                      borderRadius: 10,
+                      color: colors.red || "#f87171",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      marginBottom: 16,
+                    }}
+                  >
+                    {err}
+                  </div>
+                )}
+
+                {/* Form Fields */}
+                <form
+                  onSubmit={doRegister}
+                  style={{ display: "grid", gap: 14 }}
+                >
+                  <div>
+                    <label
+                      htmlFor="name"
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: colors.t2 || "#cbd5e1",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Your name
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      placeholder="Moses"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "11px 14px",
+                        borderRadius: 10,
+                        border: `1px solid ${colors.bg3 || "rgba(255,255,255,0.1)"}`,
+                        background: colors.bg || "#0b0f17",
+                        color: colors.t1 || "#fff",
+                        fontSize: 14,
+                        outline: "none",
+                        boxSizing: "border-box",
+                        transition: "all 0.2s ease",
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor =
+                          colors.gold || "#f59e0b";
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor =
+                          colors.bg3 || "rgba(255,255,255,0.1)";
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="email"
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: colors.t2 || "#cbd5e1",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Email address
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "11px 14px",
+                        borderRadius: 10,
+                        border: `1px solid ${colors.bg3 || "rgba(255,255,255,0.1)"}`,
+                        background: colors.bg || "#0b0f17",
+                        color: colors.t1 || "#fff",
+                        fontSize: 14,
+                        outline: "none",
+                        boxSizing: "border-box",
+                        transition: "all 0.2s ease",
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor =
+                          colors.gold || "#f59e0b";
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor =
+                          colors.bg3 || "rgba(255,255,255,0.1)";
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="password"
+                      style={{
+                        display: "block",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: colors.t2 || "#cbd5e1",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Password
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="At least 8 characters"
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "11px 14px",
+                          paddingRight: 45,
+                          borderRadius: 10,
+                          border: `1px solid ${colors.bg3 || "rgba(255,255,255,0.1)"}`,
+                          background: colors.bg || "#0b0f17",
+                          color: colors.t1 || "#fff",
+                          fontSize: 14,
+                          outline: "none",
+                          boxSizing: "border-box",
+                          transition: "all 0.2s ease",
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor =
+                            colors.gold || "#f59e0b";
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor =
+                            colors.bg3 || "rgba(255,255,255,0.1)";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: "absolute",
+                          right: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          color: colors.t3 || "#94a3b8",
+                          fontSize: 11,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    style={{
+                      width: "100%",
+                      padding: "13px",
+                      background: colors.gold || "#f59e0b",
+                      color: "#000",
+                      border: "none",
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: loading ? "not-allowed" : "pointer",
+                      transition: "all 0.2s ease",
+                      marginTop: 6,
+                      opacity: loading ? 0.7 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loading)
+                        e.currentTarget.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!loading)
+                        e.currentTarget.style.transform = "translateY(0)";
+                    }}
+                  >
+                    {loading ? "Creating account…" : "Create Free Account"}
+                  </button>
+                </form>
+
+                <p
+                  style={{
+                    textAlign: "center",
+                    fontSize: 11,
+                    color: colors.t3 || "#64748b",
+                    marginTop: 16,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  By signing up you agree to our{" "}
+                  <Link href="/privacy" passHref legacyBehavior>
+                    <a
+                      style={{
+                        color: colors.gold || "#f59e0b",
+                        textDecoration: "none",
+                      }}
                     >
                       Privacy Policy
-                    </Link>{" "}
-                    and{" "}
-                    <Link
-                      href="/terms"
-                      className="text-amber-400 hover:underline"
+                    </a>
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/terms" passHref legacyBehavior>
+                    <a
+                      style={{
+                        color: colors.gold || "#f59e0b",
+                        textDecoration: "none",
+                      }}
                     >
                       Terms
-                    </Link>
-                    .
-                  </p>
+                    </a>
+                  </Link>
+                  .
+                </p>
 
-                  <div className="mt-6 text-center text-xs text-slate-400">
-                    Already have an account?{" "}
-                    <Link
-                      href="/account/login"
-                      className="text-amber-400 hover:underline font-medium"
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginTop: 16,
+                    fontSize: 13,
+                    color: colors.t3 || "#94a3b8",
+                  }}
+                >
+                  Already have an account?{" "}
+                  <Link href="/account/login" passHref legacyBehavior>
+                    <a
+                      style={{
+                        color: colors.gold || "#f59e0b",
+                        textDecoration: "none",
+                        fontWeight: 700,
+                      }}
                     >
                       Sign in
-                    </Link>
-                  </div>
-                </motion.div>
-              ) : (
-                /* SUCCESS STATE */
-                <motion.div
-                  key="success-screen"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-6"
+                    </a>
+                  </Link>
+                </div>
+              </>
+            ) : (
+              /* Success Message Screen */
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
+                    background: "rgba(16, 185, 129, 0.15)",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    color: "#34d399",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 20px auto",
+                    fontSize: 24,
+                  }}
                 >
-                  <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-6 text-2xl">
-                    ✉️
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">
-                    Check your email
-                  </h2>
-                  <p className="text-slate-300 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
-                    {ok}
-                  </p>
-                  <Link
-                    href="/account/login"
-                    className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-amber-400 text-slate-950 font-semibold text-sm hover:brightness-110 transition-all shadow-lg shadow-amber-500/10"
+                  ✉️
+                </div>
+                <h2
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 700,
+                    color: colors.t1 || "#fff",
+                    marginBottom: 8,
+                  }}
+                >
+                  Check your email
+                </h2>
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: colors.t3 || "#94a3b8",
+                    lineHeight: 1.6,
+                    marginBottom: 24,
+                  }}
+                >
+                  {ok}
+                </p>
+                <Link href="/account/login" passHref legacyBehavior>
+                  <a
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: "12px",
+                      background: colors.gold || "#f59e0b",
+                      color: "#000",
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      fontSize: 14,
+                      textDecoration: "none",
+                      boxSizing: "border-box",
+                    }}
                   >
                     Proceed to Sign In →
-                  </Link>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  </a>
+                </Link>
+              </div>
+            )}
           </div>
-        </motion.div>
+        </div>
       </div>
     </>
   );
