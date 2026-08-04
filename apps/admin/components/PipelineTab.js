@@ -97,12 +97,10 @@ function ProviderCard({ provider, onTrigger }) {
           <button
             onClick={handleTrigger}
             disabled={provider.status === "running" || triggering}
+            className="premium-btn"
             style={{
               padding: "6px 14px",
               borderRadius: 8,
-              border: `1px solid ${G.border}`,
-              background: G.bg3,
-              color: G.t1,
               fontSize: 12,
               fontWeight: 700,
               cursor:
@@ -286,41 +284,33 @@ export default function PipelineTab({ notify, confirmAction }) {
                     await triggerProvider(provider.provider_name);
                   }
                 },
-              })
-            }
-            style={{
-              padding: "6px 12px",
-              borderRadius: 8,
-              border: `1px solid ${G.gold}40`,
-              background: G.gold + "12",
-              color: G.gold,
-              fontSize: 11,
-              fontWeight: 700,
-              cursor: "pointer",
-              textTransform: "capitalize",
-            }}
-          >
-            run all
-          </button>
-          {["all", "running", "idle", "error", "has_key", "no_key"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: `1px solid ${filter === f ? G.gold + "50" : G.border}`,
-                background: filter === f ? G.gold + "15" : "transparent",
-                color: filter === f ? G.gold : G.t3,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: "pointer",
-                textTransform: "capitalize",
-              }}
+              }
+            )}
+              className="premium-btn"
+              style={{ padding: "6px 12px" }}
             >
-              {f.replace("_", " ")}
+              run all
             </button>
-          ))}
+            {["all", "running", "idle", "error", "has_key", "no_key"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className="premium-btn"
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: `1px solid ${filter === f ? G.gold + "50" : G.border}`,
+                  background: filter === f ? G.gold + "15" : "transparent",
+                  color: filter === f ? G.gold : G.t3,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                }}
+              >
+                {f.replace("_", " ")}
+              </button>
+            ))}
         </div>
       </div>
 
@@ -331,11 +321,12 @@ export default function PipelineTab({ notify, confirmAction }) {
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {filtered.map((provider) => (
-            <ProviderCard
-              key={provider.provider_name}
-              provider={provider}
-              onTrigger={triggerProvider}
-            />
+            <div key={provider.provider_name} className="premium-card" style={{ padding: 0 }}>
+              <ProviderCard
+                provider={provider}
+                onTrigger={triggerProvider}
+              />
+            </div>
           ))}
         </div>
       )}

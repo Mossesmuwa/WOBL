@@ -92,24 +92,24 @@ export default function ControlCenterTab({ notify }) {
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12, marginBottom: 24 }}>
-        <StatusCard label="API Health" value={health?.status || "unknown"} tone={health?.status === "ok" ? "green" : "red"} />
-        <StatusCard
-          label="Service Role"
-          value={env?.verdict?.service_role_ok ? "ready" : "missing"}
-          tone={env?.verdict?.service_role_ok ? "green" : "red"}
-        />
-        <StatusCard
-          label="Cron Secret"
-          value={env?.verdict?.cron_secret_ok ? "ready" : "missing"}
-          tone={env?.verdict?.cron_secret_ok ? "green" : "red"}
-        />
-        <StatusCard
-          label="AI Key"
-          value={env?.ANTHROPIC_API_KEY?.set ? "ready" : "missing"}
-          tone={env?.ANTHROPIC_API_KEY?.set ? "green" : "red"}
-        />
-      </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 12, marginBottom: 24 }}>
+            <div className="premium-card"><StatusCard label="API Health" value={health?.status || "unknown"} tone={health?.status === "ok" ? "green" : "red"} /></div>
+            <div className="premium-card"><StatusCard
+              label="Service Role"
+              value={env?.verdict?.service_role_ok ? "ready" : "missing"}
+              tone={env?.verdict?.service_role_ok ? "green" : "red"}
+            /></div>
+            <div className="premium-card"><StatusCard
+              label="Cron Secret"
+              value={env?.verdict?.cron_secret_ok ? "ready" : "missing"}
+              tone={env?.verdict?.cron_secret_ok ? "green" : "red"}
+            /></div>
+            <div className="premium-card"><StatusCard
+              label="AI Key"
+              value={env?.ANTHROPIC_API_KEY?.set ? "ready" : "missing"}
+              tone={env?.ANTHROPIC_API_KEY?.set ? "green" : "red"}
+            /></div>
+          </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 12 }}>
         {TOGGLES.map((toggle) => {
@@ -117,6 +117,7 @@ export default function ControlCenterTab({ notify }) {
           return (
             <div
               key={toggle.key}
+              className="premium-card"
               style={{
                 background: G.bg2,
                 border: `1px solid ${G.border}`,
@@ -131,16 +132,8 @@ export default function ControlCenterTab({ notify }) {
               <button
                 disabled={saving === toggle.key || loading}
                 onClick={() => setFlag(toggle.key, !value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "none",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  background: value ? `${G.green}22` : `${G.red}22`,
-                  color: value ? G.green : G.red,
-                }}
+                className="premium-btn"
+                style={{ padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 800, background: value ? `${G.green}22` : `${G.red}22`, color: value ? G.green : G.red }}
               >
                 {saving === toggle.key ? "Saving..." : value ? "Enabled" : "Disabled"}
               </button>

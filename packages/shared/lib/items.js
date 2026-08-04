@@ -14,117 +14,179 @@ export async function getCategories() {
   }
 }
 
-// ── Items by category ─────────────────────────────────
-export async function getByCategory(catId, opts) {
+// ── Core query builder (internal) ──────────────────────
+function applySort(query, sortBy) {
+  switch (sortBy) {
+    case "rating":
+      return query.order("rating", { ascending: false, nullsFirst: false });
+    case "popularity":
+      return query.order("popularity", { ascending: false, nullsFirst: false });
+    case "newest":
+      return query.order("release_date", {
+        ascending: false,
+        nullsFirst: false,
+      });
+    case "name":
+      return query.order("name", { ascending: true });
+    case "trending":
+    default:
+      return query
+        .order("trending", { ascending: false })
+        .order("popularity", { ascending: false, nullsFirst: false })
+        .order("save_count", { ascending: false });
+  }
+}
+
+// ── Items by category (single source of truth) ─────────
+export async function getByCategory(catId, opts = {}) {
   if (!supabase) return [];
   const {
     limit = 24,
     offset = 0,
     sortBy = "trending",
     freeOnly = false,
-  } = opts || {};
+  } = opts;
+
   try {
     let q = supabase
       .from("items")
       .select("*")
       .eq("category_id", catId)
-      .eq("approved", true);
+      .eq("approved", true)
+      .not("image", "is", null); // never show broken/imageless items
+
     if (freeOnly) q = q.ilike("pricing", "%free%");
-    if (sortBy === "rating") q = q.order("rating", { ascending: false });
-    else if (sortBy === "newest") q = q.order("year", { ascending: false });
-    else if (sortBy === "name") q = q.order("name", { ascending: true });
-    else
-      q = q
-        .order("trending", { ascending: false })
-        .order("save_count", { ascending: false });
+    q = applySort(q, sortBy);
     q = q.range(offset, offset + limit - 1);
-    const { data } = await q;
+
+    const { data, error } = await q;
+    if (error) console.error("[getByCategory]", error.message);
     return data || [];
-  } catch {
+  } catch (err) {
+    console.error("[getByCategory] failed:", err.message);
     return [];
   }
 }
 
-// ── Trending ──────────────────────────────────────
-export async function getTrending(limit = 12) {
+// ── Trending ────────────────────────────────────────────
+export async function getTrending(limit = 12, category = null) {
   if (!supabase) return [];
   try {
-    const { data } = await supabase
+    let q = supabase
       .from("items")
       .select("*")
       .eq("approved", true)
       .eq("trending", true)
+      .not("image", "is", null);
+
+    if (category) q = q.eq("category_id", category);
+
+    q = q
+      .order("popularity", { ascending: false, nullsFirst: false })
       .order("save_count", { ascending: false })
       .limit(limit);
-    return data || [];
-  } catch {
+
+    const { data } = await q;
+
+    // Fallback: if nothing is flagged trending yet, use top-rated instead
+    if (!data || data.length === 0) {
+      return getByCategory(category || "movies", { limit, sortBy: "rating" });
+    }
+    return data;
+  } catch (err) {
+    console.error("[getTrending] failed:", err.message);
     return [];
   }
 }
 
-// ── Featured ──────────────────────────────────────
-export async function getFeatured(limit = 5) {
+// ── Featured ────────────────────────────────────────────
+export async function getFeatured(limit = 5, category = null) {
   if (!supabase) return [];
   try {
-    const { data } = await supabase
+    let q = supabase
       .from("items")
       .select("*")
       .eq("approved", true)
       .eq("featured", true)
-      .not("image", "is", null)
-      .limit(limit);
-    return data || [];
-  } catch {
+      .not("image", "is", null);
+
+    if (category) q = q.eq("category_id", category);
+
+    q = q.order("rating", { ascending: false, nullsFirst: false }).limit(limit);
+
+    const { data } = await q;
+
+    // Fallback: if nothing is flagged featured, use highest-rated with enough votes
+    if (!data || data.length === 0) {
+      let fallback = supabase
+        .from("items")
+        .select("*")
+        .eq("approved", true)
+        .not("image", "is", null)
+        .gte("rating_count", 100);
+      if (category) fallback = fallback.eq("category_id", category);
+      const { data: fbData } = await fallback
+        .order("rating", { ascending: false, nullsFirst: false })
+        .limit(limit);
+      return fbData || [];
+    }
+    return data;
+  } catch (err) {
+    console.error("[getFeatured] failed:", err.message);
     return [];
   }
 }
 
-// ── Single item by slug ───────────────────────────
+// ── Single item by slug ─────────────────────────────────
 export async function getBySlug(slug) {
   if (!supabase || !slug) return null;
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("items")
       .select("*")
       .eq("slug", slug)
       .eq("approved", true)
       .single();
-    // View tracking should be done server-side via API endpoint, not client-side.
-    // This prevents cheating and keeps analytics accurate.
-    // TODO: Call /api/track-view endpoint if needed
-    return data || null;
+    if (error) return null;
+    return data;
   } catch {
     return null;
   }
 }
 
-// ── Search ────────────────────────────────────────
-export async function search(query, opts) {
+// ── Search ──────────────────────────────────────────────
+export async function search(query, opts = {}) {
   if (!supabase) return [];
-  const { categoryId = null, limit = 24 } = opts || {};
-  if (!query || query.trim().length < 2) return getTrending(limit);
+  const { categoryId = null, limit = 24 } = opts;
+  if (!query || query.trim().length < 2) return getTrending(limit, categoryId);
+
   const q = query.trim().toLowerCase();
   try {
     let dbQ = supabase
       .from("items")
       .select("*")
       .eq("approved", true)
+      .not("image", "is", null)
       .or(
         `name.ilike.%${q}%,short_desc.ilike.%${q}%,genre.ilike.%${q}%,author.ilike.%${q}%`,
       );
+
     if (categoryId) dbQ = dbQ.eq("category_id", categoryId);
+
     dbQ = dbQ
-      .order("trending", { ascending: false })
+      .order("popularity", { ascending: false, nullsFirst: false })
       .order("save_count", { ascending: false })
       .limit(limit);
+
     const { data } = await dbQ;
     return data || [];
-  } catch {
+  } catch (err) {
+    console.error("[search] failed:", err.message);
     return [];
   }
 }
 
-// ── Related items ─────────────────────────────────
+// ── Related items ───────────────────────────────────────
 export async function getRelated(item, limit = 4) {
   if (!supabase || !item) return [];
   try {
@@ -133,8 +195,9 @@ export async function getRelated(item, limit = 4) {
       .select("*")
       .eq("category_id", item.category_id)
       .eq("approved", true)
+      .not("image", "is", null)
       .neq("id", item.id)
-      .order("save_count", { ascending: false })
+      .order("popularity", { ascending: false, nullsFirst: false })
       .limit(limit);
     return data || [];
   } catch {
@@ -142,7 +205,27 @@ export async function getRelated(item, limit = 4) {
   }
 }
 
-// ── Recommendations ────────────────────────────────
+// ── Newest ──────────────────────────────────────────────
+export async function getNewest(limit = 12, category = null) {
+  if (!supabase) return [];
+  try {
+    let q = supabase
+      .from("items")
+      .select("*")
+      .eq("approved", true)
+      .not("image", "is", null);
+    if (category) q = q.eq("category_id", category);
+    q = q
+      .order("release_date", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    const { data } = await q;
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+// ── Recommendations (requires logged-in user) ───────────
 export async function getRecommendations(limit = 6) {
   if (!supabase) return [];
   try {
@@ -150,88 +233,54 @@ export async function getRecommendations(limit = 6) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return getTrending(limit);
+
     const { data: favs } = await supabase
       .from("favorites")
       .select("item_id, items(category_id)")
       .eq("user_id", user.id)
       .limit(20);
+
     if (!favs || !favs.length) return getTrending(limit);
+
     const counts = {};
     favs.forEach((f) => {
       const cat = f.items?.category_id;
       if (cat) counts[cat] = (counts[cat] || 0) + 1;
     });
+
     const topCat = Object.keys(counts).reduce(
       (a, b) => (counts[a] > counts[b] ? a : b),
       Object.keys(counts)[0],
     );
+
     const excludeIds = favs.map((f) => f.item_id).filter(Boolean);
+
     const { data } = await supabase
       .from("items")
       .select("*")
       .eq("approved", true)
       .eq("category_id", topCat)
-      .order("save_count", { ascending: false })
-      .limit(limit);
-    const result = (data || []).filter((i) => !excludeIds.includes(i.id));
+      .not("image", "is", null)
+      .order("popularity", { ascending: false, nullsFirst: false })
+      .limit(limit + excludeIds.length); // overfetch to allow filtering
+
+    const result = (data || [])
+      .filter((i) => !excludeIds.includes(i.id))
+      .slice(0, limit);
+
     return result.length ? result : getTrending(limit);
-  } catch {
+  } catch (err) {
+    console.error("[getRecommendations] failed:", err.message);
     return getTrending(limit);
   }
 }
 
-// ── Newest ────────────────────────────────────────
-export async function getNewest(limit = 12) {
-  if (!supabase) return [];
-  try {
-    const { data } = await supabase
-      .from("items")
-      .select("*")
-      .eq("approved", true)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-// ── Generic items getter with flexible options ────
+// ── Generic getter (kept as thin wrapper, not duplicate logic) ──
 export async function getItems(opts = {}) {
-  if (!supabase) return [];
   const { category, limit = 12, orderBy = "trending" } = opts;
-
-  try {
-    let query = supabase.from("items").select("*").eq("approved", true);
-
-    // Filter by category if provided
-    if (category) {
-      query = query.eq("category_id", category);
-    }
-
-    // Apply ordering
-    if (orderBy === "created_at") {
-      query = query.order("created_at", { ascending: false });
-    } else if (orderBy === "trending_score" || orderBy === "trending") {
-      query = query
-        .order("trending", { ascending: false })
-        .order("save_count", { ascending: false });
-    } else if (orderBy === "rating") {
-      query = query.order("rating", { ascending: false });
-    } else if (orderBy === "newest") {
-      query = query.order("created_at", { ascending: false });
-    } else if (orderBy === "name") {
-      query = query.order("name", { ascending: true });
-    }
-
-    query = query.limit(limit);
-    const { data } = await query;
-    return data || [];
-  } catch {
-    return [];
-  }
+  return getByCategory(category, { limit, sortBy: orderBy });
 }
 
-// ── Compatibility aliases for pages ────────────────
+// ── Compatibility aliases ───────────────────────────────
 export { getBySlug as getItemBySlug };
 export { search as searchItems };

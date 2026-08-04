@@ -246,10 +246,11 @@ export default function ProvidersTab({ onRefresh }) {
         />
 
         <div style={{ display: "flex", gap: 8 }}>
-          {["all", "content", "enricher", "free", "needsKey"].map((f) => (
+          {['all', 'content', 'enricher', 'free', 'needsKey'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
+              className="premium-btn"
               style={{
                 padding: "8px 16px",
                 borderRadius: 8,
@@ -273,7 +274,7 @@ export default function ProvidersTab({ onRefresh }) {
 
         <button
           onClick={runAll}
-          className="btn-gold"
+          className="premium-btn"
           style={{
             padding: "10px 24px",
             fontSize: 12,
@@ -301,6 +302,7 @@ export default function ProvidersTab({ onRefresh }) {
           return (
             <div
               key={p.key}
+              className="premium-card"
               style={{
                 background: GOLD.surface,
                 border: busy
@@ -393,14 +395,8 @@ export default function ProvidersTab({ onRefresh }) {
               <button
                 onClick={() => trigger(p.key)}
                 disabled={busy}
-                className="btn-ghost"
-                style={{
-                  width: "100%",
-                  fontSize: 12,
-                  padding: "10px 12px",
-                  opacity: busy ? 0.5 : 1,
-                  cursor: busy ? "not-allowed" : "pointer",
-                }}
+                className="premium-btn"
+                style={{ width: "100%", fontSize: 12, padding: "10px 12px", opacity: busy ? 0.5 : 1 }}
               >
                 {busy ? "⟳ Running..." : "▶ Run"}
               </button>

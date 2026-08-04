@@ -96,6 +96,7 @@ export default function SecurityTab() {
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => setFilter("all")}
+            className="premium-btn"
             style={{
               padding: "6px 12px",
               borderRadius: 8,
@@ -113,6 +114,7 @@ export default function SecurityTab() {
             <button
               key={action}
               onClick={() => setFilter(action)}
+              className="premium-btn"
               style={{
                 padding: "6px 12px",
                 borderRadius: 8,
@@ -139,7 +141,7 @@ export default function SecurityTab() {
           marginBottom: 32,
         }}
       >
-        <div
+        <div className="premium-card"
           style={{
             padding: 16,
             borderRadius: 12,
@@ -163,7 +165,7 @@ export default function SecurityTab() {
           </div>
         </div>
 
-        <div
+        <div className="premium-card"
           style={{
             padding: 16,
             borderRadius: 12,
@@ -193,7 +195,7 @@ export default function SecurityTab() {
           </div>
         </div>
 
-        <div
+        <div className="premium-card"
           style={{
             padding: 16,
             borderRadius: 12,
@@ -224,7 +226,7 @@ export default function SecurityTab() {
           Provider Error Tracking
         </h3>
         {providerErrors.length === 0 ? (
-          <div
+          <div className="premium-card"
             style={{
               padding: 14,
               borderRadius: 10,
@@ -239,7 +241,7 @@ export default function SecurityTab() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 10 }}>
             {providerErrors.map((p) => (
-              <div
+              <div className="premium-card"
                 key={p.provider_name}
                 style={{
                   borderRadius: 10,
@@ -282,7 +284,7 @@ export default function SecurityTab() {
           No audit logs found
         </div>
       ) : (
-        <div
+        <div className="premium-card"
           style={{
             background: G.bg2,
             border: `1px solid ${G.border}`,

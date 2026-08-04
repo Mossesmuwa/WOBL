@@ -1,6 +1,8 @@
-# NovaHub - Complete Architecture & Implementation Guide
+# NovaHub - Current Architecture Guide
 
-**Last Updated:** May 19, 2026 | **Version:** 2.0 | **Status:** Production-Ready ✓
+**Last Updated:** August 4, 2026  
+**Version:** 2.2  
+**Status:** Active development / engineering reference
 
 ---
 
@@ -8,183 +10,220 @@
 
 ### Core Purpose
 
-NovaHub is a **dual-app intelligence platform** that aggregates, categorizes, and ranks content across 10+ sources (movies, games, apps, articles, books, courses, tools, music, etc.) using AI scoring and real-time trend analysis.
+NovaHub is a monorepo platform for discovering, ranking, comparing, and managing content across multiple categories such as movies, games, apps, books, articles, and other media. The current implementation combines:
 
-### Architecture
+- a public Next.js web app for browsing and discovery,
+- an admin dashboard for management and sync operations,
+- and a shared package that powers authentication, database access, and the content pipeline.
 
-```
-USER FLOW:
-┌─────────────────────────────────────────────────────────┐
-│ Web App (User-facing)         Admin App (Management)    │
-│ ├─ Discover (all items)       ├─ Dashboard (stats)      │
-│ ├─ Trending (trending_score)  ├─ Providers (sync)       │
-│ ├─ Compare (side-by-side)     └─ Trigger (manual run)   │
-│ ├─ Search (full-text)                                   │
-│ ├─ Categories (by type)       Shared (both apps)        │
-│ └─ Item Details               └─ packages/shared/lib/   │
-│    (with AI score)               (auth, DB, utils)      │
-└─────────────────────────────────────────────────────────┘
+### High-Level Architecture
+
+```text
+┌──────────────────────────────┐      ┌──────────────────────────────┐
+│ Public Web App               │      │ Admin App                    │
+│ - Browse / Search            │      │ - Dashboard                  │
+│ - Trending / Compare        │      │ - Trigger syncs             │
+│ - Item details              │      │ - Review pipeline data      │
+│ - Account features          │      │ - Manage platform settings  │
+└──────────────┬───────────────┘      └──────────────┬───────────────┘
+               │                                      │
+               └──────────────┬───────────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │ Shared Package     │
+                    │ - Auth             │
+                    │ - Supabase clients │
+                    │ - Items queries    │
+                    │ - Sync pipeline    │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │ Supabase Database │
+                    │ - items            │
+                    │ - categories       │
+                    │ - profiles        │
+                    │ - favorites       │
+                    └───────────────────┘
 ```
 
 ---
 
-## 2. FILE STRUCTURE & DEPENDENCIES
+## 2. DETAILED FILE STRUCTURE
 
-### Directory Tree
+### Root Structure
 
-```
+```text
 NovaHub/
 ├── apps/
-│   ├── web/                          # User-facing Next.js app (port 3000)
+│   ├── web/
 │   │   ├── pages/
-│   │   │   ├── index.js              # Homepage with trending items
-│   │   │   ├── trending.js           # Trending page (medal icons, sorting)
-│   │   │   ├── category.js           # Category browsing page
-│   │   │   ├── item/
-│   │   │   │   └── [slug].js         # Item detail page (Nova Score, analysis)
-│   │   │   ├── compare/
-│   │   │   │   ├── index.js          # Compare tool
-│   │   │   │   └── [item1]-vs-[item2].js  # Compare results
-│   │   │   ├── search.js             # Search results
-│   │   │   ├── discover.js           # Discovery interface
-│   │   │   ├── weekly.js             # Weekly pulse digest
-│   │   │   ├── account/
-│   │   │   │   ├── login.js          # Auth page (Supabase)
-│   │   │   │   ├── register.js       # Registration
-│   │   │   │   ├── profile.js        # User profile
-│   │   │   │   ├── favorites.js      # Saved items
-│   │   │   │   └── dashboard.js      # User dashboard
-│   │   │   ├── pro/
-│   │   │   │   └── index.js          # Pro plan landing
-│   │   │   ├── api/
-│   │   │   │   ├── admin/
-│   │   │   │   │   ├── trigger.js    # Provider sync API (admin-only)
-│   │   │   │   │   └── env-check.js  # Environment validator
-│   │   │   │   ├── items/
-│   │   │   │   │   ├── [slug]/
-│   │   │   │   │   │   └── nova-score.js   # Score calculation
-│   │   │   │   ├── ai-recommend.js   # AI recommendations
-│   │   │   │   ├── ai-stream.js      # AI streaming (future)
-│   │   │   │   └── lists/            # User lists CRUD
-│   │   │   ├── _app.js               # Global app wrapper
-│   │   │   └── _document.js          # Document shell
 │   │   ├── components/
-│   │   │   ├── Navbar.js             # Navigation (SVG icons, responsive)
-│   │   │   ├── Footer.js             # Footer (links, social)
-│   │   │   ├── Layout.js             # Main layout wrapper
-│   │   │   ├── Card.js               # Item card component
-│   │   │   ├── SEO.js                # SEO metadata
-│   │   │   ├── ScoreGauge.js         # Visual Nova Score display
-│   │   │   ├── ScoreBreakdown.js     # Score detail breakdown
-│   │   │   ├── TrendAnalysis.js      # Trend reasons (SVG icons)
-│   │   │   ├── TrustBadge.js         # Data quality display
-│   │   │   ├── AuditTrail.js         # Source verification
-│   │   │   ├── CompareButton.js      # Add to compare
-│   │   │   ├── AddToList.js          # Save to list modal
-│   │   │   ├── NovaScore.js          # Score component
-│   │   │   └── TrailerPlayer.js      # Video player
 │   │   ├── hooks/
-│   │   │   ├── usePro.js             # Pro tier checker
-│   │   │   └── useScrollReveal.js    # Scroll animations
 │   │   ├── styles/
-│   │   │   ├── style.css             # Main styles
-│   │   │   ├── components.css        # Component styles
-│   │   │   ├── variables.css         # CSS variables (colors)
-│   │   │   └── ai-interface.css      # AI UI styles
-│   │   ├── next.config.js            # Next.js config
-│   │   ├── jsconfig.json             # Path aliases: shared/*
-│   │   ├── package.json              # Dependencies
-│   │   ├── .env.local.example        # ENV template (local URLs)
-│   │   └── public/
-│   │       ├── robots.txt            # SEO robots rules
-│   │       └── assets/               # Static files
-│   │
-│   └── admin/                         # Admin Next.js app (port 3002)
+│   │   ├── public/
+│   │   ├── next.config.js
+│   │   ├── jsconfig.json
+│   │   └── package.json
+│   └── admin/
 │       ├── pages/
-│       │   ├── index.js              # Redirect to dashboard
-│       │   ├── dashboard.js          # Admin dashboard
-│       │   ├── trigger.js            # Manual provider sync UI
-│       │   ├── account/
-│       │   │   └── login.js          # Admin-only login
-│       │   └── _app.js
 │       ├── components/
-│       │   └── AdminLayout.js        # Admin layout
 │       ├── next.config.js
-│       ├── jsconfig.json             # Path aliases: shared/*
-│       ├── package.json
-│       ├── .env.local.example        # ENV template (admin URLs)
-│       └── public/
-│
+│       ├── jsconfig.json
+│       └── package.json
 ├── packages/
-│   └── shared/                        # Shared monorepo package (both apps use)
+│   └── shared/
 │       ├── lib/
-│       │   ├── auth.js               # Auth utils (login, register, OAuth)
-│       │   ├── checkAuth.js          # Auth verification (universal)
-│       │   ├── categoryRenderers.js  # Category-specific UI (NEW)
-│       │   ├── comments.js           # Comments CRUD
-│       │   ├── cookies.js            # Cookie management
-│       │   ├── design.js             # Color constants + SVG icons
-│       │   ├── email.js              # Email templates
-│       │   ├── env.js                # Environment checker
-│       │   ├── favorites.js          # Favorites CRUD
-│       │   ├── helpers.js            # Utility functions
-│       │   ├── items.js              # Item fetching + queries
-│       │   ├── nova-pulse.js         # Weekly digest generator
-│       │   ├── nova-score.js         # Nova Score™ algorithm (0-100)
-│       │   ├── rateLimit.js          # Rate limiting
-│       │   ├── search.js             # Full-text search
-│       │   ├── securityLogger.js     # Security event logging
-│       │   ├── stripe.js             # Stripe integration
-│       │   ├── supabase.js           # Supabase client
-│       │   ├── supabaseAdmin.js      # Server admin client
-│       │   ├── supabaseClient.js     # Client initialization
-│       │   ├── SupabaseContext.js    # React Context provider
-│       │   ├── syncService.js        # Data sync orchestration
-│       │   ├── validation.js         # Data validation
-│       │   ├── pipeline/             # Content sync providers
-│       │   │   ├── SyncEngine.js     # Main sync coordinator
-│       │   │   ├── BaseProvider.js   # Provider base class
-│       │   │   ├── AIService.js      # OpenAI/Gemini integration
-│       │   │   ├── TMDBProvider.js   # Movies + TV (TMDB API)
-│       │   │   ├── ProductHuntProvider.js  # Trending tools
-│       │   │   ├── GitHubProvider.js      # Trending repos
-│       │   │   ├── HackerNewsProvider.js  # Top stories
-│       │   │   ├── RedditProvider.js      # Reddit posts
-│       │   │   ├── SteamProvider.js       # PC games
-│       │   │   ├── RAWGProvider.js        # Video games
-│       │   │   ├── BooksProvider.js       # Google Books
-│       │   │   ├── OpenLibraryProvider.js # Open Library
-│       │   │   ├── ArxivProvider.js       # Research papers
-│       │   │   ├── CoursesProvider.js     # Coursera + Udemy
-│       │   │   ├── DevToProvider.js       # DEV.to articles
-│       │   │   ├── YouTubeProvider.js     # YouTube videos
-│       │   │   ├── SpotifyProvider.js     # Music + podcasts
-│       │   │   ├── NYTBooksProvider.js    # NYT bestsellers
-│       │   │   ├── IGDBProvider.js        # Game info
-│       │   │   ├── OMDBEnricher.js        # Movie metadata
-│       │   │   ├── WikipediaEnricher.js   # Article summaries
-│       │   │   ├── JustWatchEnricher.js   # Streaming availability
-│       │   │   └── index.js              # Provider registry
-│       │   └── providers/
-│       │       └── baseProvider.js   # (Deprecated - use pipeline/)
 │       ├── hooks/
-│       │   └── usePro.js             # Pro tier hook
-│       ├── index.js                  # Barrel exports
+│       ├── index.js
 │       ├── package.json
 │       └── types/
-│           └── index.js              # TypeScript types (future)
-│
 ├── db/
-│   ├── schema.sql                    # Main database schema
-│   ├── 002_add_embeddings.sql        # Add vector embeddings
-│   ├── 003_fix_rls_policies.sql      # Row-level security policies
-│
-├── package.json                       # Root monorepo config
-├── turbo.json                        # Turbo build orchestration
-├── next.config.js                    # Shared Next.js config
-├── vercel.json                       # Vercel deployment config
-├── .env.example                      # Master ENV template
-└── .gitignore
+├── package.json
+├── turbo.json
+├── ARCHITECTURE.md
+└── CURRENT_APP_OVERVIEW.md
+```
+
+### Public Web App Structure
+
+```text
+apps/web/
+├── pages/
+│   ├── index.js                 # Homepage
+│   ├── trending.js              # Trending page
+│   ├── category.js              # Category browser
+│   ├── search.js                # Search results page
+│   ├── discover.js              # Discovery experience
+│   ├── weekly.js                # Weekly digest view
+│   ├── compare.js               # Compare page
+│   ├── compare/
+│   │   └── [item1]-vs-[item2].js
+│   ├── item/
+│   │   └── [slug].js            # Item detail page
+│   ├── account/
+│   │   ├── login.js
+│   │   ├── register.js
+│   │   ├── profile.js
+│   │   ├── favorites.js
+│   │   └── dashboard.js
+│   ├── pro/
+│   │   └── index.js
+│   ├── api/
+│   │   └── admin/
+│   │       └── trigger.js       # Admin sync endpoint
+│   ├── _app.js                  # App wrapper and global UI behavior
+│   └── _document.js
+├── components/
+│   ├── Navbar.js
+│   ├── Footer.js
+│   ├── Layout.js
+│   ├── Card.js
+│   ├── SEO.js
+│   ├── ScoreGauge.js
+│   ├── ScoreBreakdown.js
+│   ├── TrendAnalysis.js
+│   ├── TrustBadge.js
+│   ├── AuditTrail.js
+│   ├── CompareButton.js
+│   ├── AddToList.js
+│   ├── NovaScore.js
+│   └── TrailerPlayer.js
+├── hooks/
+│   ├── usePro.js
+│   └── useScrollReveal.js
+├── styles/
+│   ├── style.css
+│   ├── components.css
+│   ├── variables.css
+│   └── ai-interface.css
+└── public/
+    ├── robots.txt
+    └── assets/
+```
+
+### Admin App Structure
+
+```text
+apps/admin/
+├── pages/
+│   ├── index.js
+│   ├── dashboard.js            # Main admin dashboard
+│   ├── trigger.js             # Manual trigger UI
+│   ├── account/
+│   │   └── login.js
+│   └── _app.js
+├── components/
+│   ├── AdminLayout.js
+│   ├── OverviewTab.js
+│   ├── PipelineTab.js
+│   ├── IntelligenceTab.js
+│   ├── SecurityTab.js
+│   ├── BusinessTab.js
+│   ├── SettingsTab.js
+│   ├── UsersTab.js
+│   ├── ControlCenterTab.js
+│   └── NotificationsTab.js
+└── package.json
+```
+
+### Shared Package Structure
+
+```text
+packages/shared/
+├── lib/
+│   ├── auth.js
+│   ├── checkAuth.js
+│   ├── comments.js
+│   ├── cookies.js
+│   ├── design.js
+│   ├── email.js
+│   ├── env.js
+│   ├── favorites.js
+│   ├── helpers.js
+│   ├── items.js
+│   ├── nova-pulse.js
+│   ├── nova-score.js
+│   ├── rateLimit.js
+│   ├── search.js
+│   ├── securityLogger.js
+│   ├── stripe.js
+│   ├── supabase.js
+│   ├── supabaseAdmin.js
+│   ├── supabaseClient.js
+│   ├── SupabaseContext.js
+│   ├── validation.js
+│   ├── pipeline/
+│   │   ├── SyncEngine.js
+│   │   ├── BaseProvider.js
+│   │   ├── AIService.js
+│   │   ├── TMDBProvider.js
+│   │   ├── ProductHuntProvider.js
+│   │   ├── GitHubProvider.js
+│   │   ├── HackerNewsProvider.js
+│   │   ├── RedditProvider.js
+│   │   ├── SteamProvider.js
+│   │   ├── RAWGProvider.js
+│   │   ├── BooksProvider.js
+│   │   ├── OpenLibraryProvider.js
+│   │   ├── ArxivProvider.js
+│   │   ├── CoursesProvider.js
+│   │   ├── DevToProvider.js
+│   │   ├── YouTubeProvider.js
+│   │   ├── SpotifyProvider.js
+│   │   ├── NYTBooksProvider.js
+│   │   ├── IGDBProvider.js
+│   │   ├── OMDBEnricher.js
+│   │   ├── WikipediaEnricher.js
+│   │   ├── JustWatchEnricher.js
+│   │   └── index.js
+│   └── providers/
+│       └── baseProvider.js
+├── hooks/
+│   └── usePro.js
+├── index.js
+├── package.json
+└── types/
+    └── index.js
 ```
 
 ---
@@ -193,246 +232,168 @@ NovaHub/
 
 ### User Journey
 
-**Web App Flow:**
+1. A visitor opens the homepage and sees featured or trending items.
+2. They can browse categories, search for content, and compare items side-by-side.
+3. Opening an item shows a detail view with metadata, score-related UI, and related content.
+4. Users can also sign in, save favorites, and use account-based experiences.
 
-1. **Homepage** → Shows trending items + featured categories
-2. **Category Page** → Browse by type (Movies, Games, Apps, etc.)
-   - Movies: Display trailer, director, runtime
-   - Games: Show platforms, release date, developer
-   - Apps: Platform icons, version, downloads
-   - Articles: Reading time, author, excerpt
-3. **Item Detail** → Full intelligence:
-   - Nova Score™ (0-100 AI ranking)
-   - Score breakdown (freshness, completeness, confidence)
-   - Trend analysis with reasons
-   - Data quality & trust badge
-   - Source audit trail
-   - Related items comparison
-4. **Trending** → Real-time trending scores with medals (🥇🥈🥉)
-5. **Compare** → Side-by-side item analysis
-6. **Search** → Full-text search across all items
+### Admin Flow
 
-**Admin App Flow:**
-
-1. **Login** → Admin-only authentication
-2. **Dashboard** → Statistics + last synced times
-3. **Trigger Page** → Manual provider sync
-   - Run single provider or all
-   - Real-time logs + results
-   - View synced item counts
+1. An admin signs into the admin app.
+2. The dashboard loads the management interface.
+3. The trigger page allows manual sync operations.
+4. The pipeline fetches provider data and stores it in the database.
 
 ### Data Flow
 
-```
-PROVIDER SYNC CYCLE (Admin Trigger)
-├─ User clicks provider sync button
-├─ API validates admin role
-├─ SyncEngine instantiates provider (e.g., TMDBProvider)
-├─ Provider fetches from API (TMDB, GitHub, etc.)
-├─ Data normalized to common schema
-├─ Enrichers add metadata (trailers, reviews, availability)
-├─ AI Service (optional) generates descriptions
-├─ Data stored in Supabase (PostgreSQL + vector embeddings)
-└─ Frontend queries via `items.js` utility
-
-FRONTEND RENDERING
-├─ Page/Component loads data from Supabase or API
-├─ categoryRenderers.js determines category-specific UI
-├─ Components render with category features
-│   └─ Movies: Trailer player, director info
-│   └─ Games: Platform badges, release date
-│   └─ Apps: Download count, screenshots
-│   └─ Articles: Reading time, author, excerpt
-└─ User interacts (save, compare, filter)
+```text
+External Providers
+   ↓
+Provider classes in shared/pipeline
+   ↓
+SyncEngine orchestrates fetch + transform
+   ↓
+Optional AI enrichment
+   ↓
+Supabase upsert / insert
+   ↓
+Web app reads data and renders UI
 ```
 
 ---
 
 ## 4. CORE SYSTEMS
 
-### Authentication (Shared)
+### Authentication System
 
-- **File:** `packages/shared/lib/auth.js`
-- **Provider:** Supabase (Google, GitHub, Apple OAuth)
-- **Session:** JWT tokens in secure HttpOnly cookies
-- **Admin Check:** `checkAuth.js` verifies `profile.is_admin` flag
-- **Flow:**
-  - Web app login → user dashboard
-  - Admin app login → admin dashboard
-  - Admin sync panel → API token validation
+- File: packages/shared/lib/auth.js
+- Purpose: login, registration, session handling, and OAuth helpers
+- Admin verification: packages/shared/lib/checkAuth.js
+- Flow:
+  - public app login → user dashboard or profile experience
+  - admin app login → admin dashboard
+  - trigger endpoint → admin authorization check
 
-### Nova Score™ Algorithm
+### Item Query Layer
 
-- **File:** `packages/shared/lib/nova-score.js`
-- **Scale:** 0-100
-- **Factors:**
-  - Data freshness (recency: 30%)
-  - Completeness (fields filled: 25%)
-  - Community engagement (upvotes, comments: 25%)
-  - Trend velocity (growing/declining: 20%)
-- **Real-time:** Calculated on-demand per item
+- File: packages/shared/lib/items.js
+- Purpose: shared access for categories, search, trending, featured, related items, and recommendations
+- It centralizes the read logic used by the web pages.
 
-### Category System (NEW)
+### Content Pipeline
 
-- **File:** `packages/shared/lib/categoryRenderers.js`
-- **Categories:**
-  - **Movies:** trailer_url, runtime, director, rating, release_year
-  - **Games:** developer, platform, release_date, playtime
-  - **Apps:** platform, version, downloads, rating
-  - **Articles:** source, author, reading_time, excerpt
-  - **Books:** author, publisher, isbn, pages
-  - **Courses:** instructor, platform, level, duration, certification
-  - **Tools:** language, github_url, npm_package, version
-  - **Music:** artist, album, genre, duration
-- **Feature:** Components use `getCategoryInfo()` to render category-specific UI
+- Main orchestrator: packages/shared/lib/pipeline/SyncEngine.js
+- Providers: TMDB, Product Hunt, GitHub, Hacker News, Reddit, Steam, RAWG, Books, OpenLibrary, arXiv, DEV.to, YouTube, Spotify, and others
+- Enrichers: OMDB, Wikipedia, JustWatch
+- Admin-triggered syncs go through apps/web/pages/api/admin/trigger.js
 
-### Provider System (Pipeline)
+### Category Rendering System
 
-- **Base:** `packages/shared/lib/pipeline/BaseProvider.js`
-- **Providers:** 16 content sources
-- **Sync Engine:** `SyncEngine.js` orchestrates parallel syncing
-- **Enrichers:** Add cross-source data (trailers, reviews, links)
-- **Error Handling:** Graceful failures, retry logic
-- **Admin UI:** Manual trigger + real-time logs
+- File: packages/shared/lib/categoryRenderers.js
+- Purpose: allow category-specific UI logic so different content types render the correct metadata and visual treatment
+
+### Nova Score Logic
+
+- File: packages/shared/lib/nova-score.js
+- Purpose: compute a score-based intelligence view for each item
+- This supports the ranking and trust experience in the UI
+
+### Database Layer
+
+- Main schema: db/schema.sql
+- Supporting migrations:
+  - db/002_add_embeddings.sql
+  - db/003_fix_rls_policies.sql
+- Supabase is the primary backend store for approved items, profiles, favorites, and related records.
 
 ---
 
 ## 5. SECURITY ARCHITECTURE
 
-### ✅ Implemented Security Measures
+### Implemented Measures
 
-1. **Authentication & Authorization**
-   - Supabase session-based auth (JWT tokens)
-   - HttpOnly secure cookies (XSS protection)
-   - Admin role verification for sensitive endpoints
-   - OAuth social login support
+1. Authentication and authorization
+   - Supabase session-based auth
+   - admin checks via shared auth helpers
+   - protected routes for admin operations
 
-2. **Database Security**
-   - Row-Level Security (RLS) on all tables
-   - Service Role Key server-side only (never exposed)
-   - Public Anon Key for client-only queries
-   - SQL injection prevention (parameterized queries)
+2. Database security
+   - row-level security policies in the SQL migrations
+   - service-role access used only on server-side paths
 
-3. **API Security**
-   - Token validation on every admin endpoint
-   - Rate limiting on sync triggers
-   - CORS restrictions (origin verification)
-   - HTTPS only (Vercel auto-enforced)
+3. API security
+   - admin sync endpoint validates auth and permissions
+   - sensitive operations should only be triggered with proper credentials
 
-4. **Code Security**
-   - Environment variables isolated (.env.local)
-   - No secrets in git (all .gitignore'd)
-   - SVG icons instead of emojis (code injection prevention)
-   - HTML escaping on user content
-
-5. **Deployment Security**
-   - Vercel's DDoS protection
-   - Automatic SSL/TLS certificates
-   - Secret management (env vars per app)
-   - Security headers via vercel.json
-
-### ⚠️ Recommendations
-
-1. **Enable 2FA** on Supabase admin account
-2. **Rotate keys** quarterly (NEXT_PUBLIC_SUPABASE_ANON_KEY, Service Role)
-3. **Monitor logs** via Supabase audit trail
-4. **Set API rate limits** on provider triggers (current: unlimited)
-5. **Use service account** for admin access (not personal account)
+4. Code and deployment safety
+   - environment variables for local and production setup
+   - secrets kept out of the repository
+   - static assets and UI are served through the app runtime
 
 ---
 
-## 6. DEPENDENCIES & VERSIONS
+## 6. DEPENDENCIES & TECHNOLOGY STACK
 
-### Critical Dependencies
+### Runtime and Framework
 
-**Both Apps (package.json):**
+- Next.js 16.2.4
+- React 18.2.0
+- React DOM 18.2.0
+- Turbo for monorepo orchestration
 
-```json
-{
-  "next": "16.2.4",
-  "react": "18.2.0",
-  "react-dom": "18.2.0",
-  "@supabase/supabase-js": "^2.38.0",
-  "framer-motion": "^10.16.0"
-}
-```
+### Data and Auth
 
-**Shared Package:**
+- Supabase for database access and authentication
+- Shared package for cross-app business logic
 
-```json
-{
-  "@supabase/supabase-js": "^2.38.0",
-  "@anthropic-ai/sdk": "^0.17.0",
-  "@google/generative-ai": "^0.1.3"
-}
-```
+### External Integrations
 
-**External APIs:**
-
-- TMDB (movies)
-- Product Hunt (tools)
-- GitHub (repos)
-- Hacker News (news)
-- Google Books (books)
-- OpenLibrary (books)
-- Steam (games)
-- arXiv (papers)
-- Reddit (posts)
-- DEV.to (articles)
-- YouTube (videos)
-- Spotify (music)
+- TMDB
+- Product Hunt
+- GitHub
+- Hacker News
+- Google Books / OpenLibrary
+- Steam
+- RAWG
+- arXiv
+- Reddit
+- DEV.to
+- YouTube
+- Spotify
 
 ---
 
-## 7. WHAT NEEDS BUILDING & UPGRADING
+## 7. DEVELOPMENT COMMANDS
 
-### High Priority (Production-Ready Today)
+### Install dependencies
 
-- ✅ Category-specific rendering (implemented)
-- ✅ Admin provider sync (working)
-- ✅ Authentication system (complete)
-- ✅ Database schema (finalized)
-- ✅ Item details page (complete)
+```bash
+npm install
+```
 
-### Medium Priority (Next Sprint)
+### Run the public app
 
-1. **Video Trailers**
-   - [ ] Add JW Player integration for movies
-   - [ ] Implement trailer detection logic
-   - [ ] Add autoplay controls
+```bash
+npm run dev:web
+```
 
-2. **AI Recommendations**
-   - [ ] Train recommendation model
-   - [ ] Add "You might also like" section
-   - [ ] Personalize based on user history
+### Run the admin app
 
-3. **User Lists**
-   - [ ] Create list management UI
-   - [ ] Add sharing functionality
-   - [ ] Export to JSON/CSV
+```bash
+npm run dev:admin
+```
 
-4. **Search Enhancements**
-   - [ ] Add filters (price, platform, rating)
-   - [ ] Implement typeahead suggestions
-   - [ ] Support advanced search syntax
+### Run both together
 
-### Lower Priority (Future Releases)
+```bash
+npm run dev
+```
 
-1. **Mobile App** (React Native)
-2. **Browser Extension** (for item detection)
-3. **API for 3rd parties** (GraphQL)
-4. **Analytics Dashboard** (user behavior)
-5. **Recommendation Engine** (ML-based)
-6. **Dark Mode Toggle** (currently dark-only)
+### Build the workspace
 
-### Technical Debt to Address
-
-1. **Replace all emojis** with SVG icons ✅ (DONE)
-2. **Environment setup** - create .env files for local dev
-3. **Error handling** - standardize API error responses
-4. **Logging** - implement centralized error tracking
-5. **Testing** - add Jest + E2E tests (Playwright)
-6. **Documentation** - API docs (Swagger/OpenAPI)
+```bash
+npm run build
+```
 
 ---
 
@@ -440,114 +401,52 @@ FRONTEND RENDERING
 
 ### Local Development
 
-```bash
-# Setup
-npm install
-cp apps/web/.env.local.example apps/web/.env.local
-cp apps/admin/.env.local.example apps/admin/.env.local
-# Fill in Supabase credentials
+- Web app: http://localhost:3000
+- Admin app: http://localhost:3002
 
-# Run dev servers
-npm run dev:web   # http://localhost:3000
-npm run dev:admin # http://localhost:3002
+### Environment Variables
 
-# Or both
-npm run dev       # Turbo runs all
+Expected values include:
 
-# Build
-npm run build
-```
-
-### Vercel Deployment
-
-```
-Web App: https://novahub.app
-Admin App: https://admin.novahub.app
-
-Environment Variables (add in Project Settings):
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
-- NEXT_PUBLIC_WEB_APP_URL=https://novahub.app
-- NEXT_PUBLIC_ADMIN_URL=https://admin.novahub.app
-```
+- NEXT_PUBLIC_WEB_APP_URL
+- NEXT_PUBLIC_ADMIN_URL
+
+### Deployment Notes
+
+- The app is designed to run as a Vercel-friendly Next.js monorepo.
+- The public web app and admin app are separate app entry points but share the same monorepo package layer.
 
 ---
 
-## 9. DATABASE SCHEMA (Quick Reference)
+## 9. DATABASE SCHEMA (QUICK REFERENCE)
 
-**Main Tables:**
+### Main Tables
 
-- `items` - All content (movies, games, apps, etc.)
-- `categories` - Content types
-- `profiles` - User accounts (is_admin flag)
-- `user_lists` - Saved collections
-- `list_items` - Items in lists
-- `user_comments` - Comments on items
-- `provider_logs` - Sync history
-- `audit_log` - Security events
+- items — main content records
+- categories — content type definitions
+- profiles — user and admin profile data
+- favorites — saved items per user
+- provider_logs — sync history and diagnostics
+- audit_log — security and administrative events
 
-**Key Columns:**
+### Key Relationships
 
-- `items.category_id` - Links to category
-- `items.trending_score` - Real-time trend value
-- `items.nova_score` - AI intelligence score
-- `profiles.is_admin` - Admin authorization flag
+- items.category_id → categories.id
+- favorites.item_id → items.id
+- profiles.id → auth user identity
 
 ---
 
-## 10. QUICK FIXES APPLIED TODAY
+## 10. CURRENT STATUS
 
-✅ **Removed all emojis** → SVG icons throughout  
-✅ **Fixed Link/anchor tags** in Navbar + Footer  
-✅ **Added category renderers** for type-specific UI  
-✅ **Updated admin providers** → removed emoji icons  
-✅ **Environment variables** → proper local/production separation  
-✅ **Build errors** → all resolved (3/3 apps building)  
-✅ **Security headers** → CORS, CSP, X-Frame-Options ready
+The project is currently a functioning Next.js monorepo with:
 
----
+- a public discovery experience,
+- an admin management interface,
+- shared authentication and database logic,
+- and a provider-driven content ingestion pipeline.
 
-## 11. RUNNING THE SITE
-
-**Start Development:**
-
-```bash
-cd "C:\Users\MOSSESMUWA\Desktop\Git Repo\NovaHub"
-npm install
-npm run dev
-```
-
-**Verify Both Apps:**
-
-- Web App: http://localhost:3000 (Browse items, trending, search)
-- Admin: http://localhost:3002 (Login → Dashboard → Trigger)
-
-**Test Admin Sync:**
-
-1. Login to http://localhost:3002/account/login
-2. Go to Dashboard, then Trigger page
-3. Click a provider (e.g., "TMDB") to sync
-4. Watch real-time logs
-5. Check item count increases
-
-**Deploy:**
-
-```bash
-git add .
-git commit -m "Production ready - categories + security"
-git push origin main
-# Vercel auto-deploys
-```
-
----
-
-## Summary
-
-**Status:** ✅ Production-Ready  
-**Build:** 3/3 apps successful  
-**Security:** Fully implemented  
-**Features:** Complete for launch  
-**Next:** Deploy to Vercel + User testing
-
-🚀 **Ready for public launch with confidence!**
+The current focus is keeping the shared data layer and sync pipeline reliable while the apps continue to render the content experience.

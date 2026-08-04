@@ -66,7 +66,7 @@ function AnomalyCard({ anomaly, onReview }) {
     }[anomaly.severity] || G.orange;
 
   return (
-    <div
+    <div className="premium-card"
       style={{
         padding: 16,
         borderRadius: 12,
@@ -150,37 +150,15 @@ function AnomalyCard({ anomaly, onReview }) {
           <div style={{ display: "flex", gap: 8, marginLeft: 16 }}>
             <button
               onClick={() => handleReview(true)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 8,
-                background: G.green,
-                border: "none",
-                color: "#000",
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
+              className="premium-btn"
+              style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 4 }}
             >
               <Icon.check /> Legitimate
             </button>
             <button
               onClick={() => handleReview(false)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 8,
-                background: G.red + "15",
-                border: `1px solid ${G.red}40`,
-                color: G.red,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
+              className="premium-btn"
+              style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 4, background: G.red+"15" }}
             >
               <Icon.x /> Bot/Spam
             </button>
@@ -213,14 +191,7 @@ function PendingItemCard({ item, onApprove, onReject }) {
   const data = item.item_data || {};
 
   return (
-    <div
-      style={{
-        padding: 16,
-        borderRadius: 12,
-        border: `1px solid ${G.border}`,
-        background: G.bg2,
-      }}
-    >
+    <div className="premium-card" style={{ padding: 16, borderRadius: 12, border: `1px solid ${G.border}`, background: G.bg2 }}>
       <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
         {data.image && (
           <div
@@ -271,36 +242,16 @@ function PendingItemCard({ item, onApprove, onReject }) {
         <button
           onClick={handleApprove}
           disabled={processing}
-          style={{
-            flex: 1,
-            padding: "10px",
-            borderRadius: 8,
-            background: G.green,
-            border: "none",
-            color: "#000",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: processing ? "not-allowed" : "pointer",
-            opacity: processing ? 0.5 : 1,
-          }}
+          className="premium-btn"
+          style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 13, fontWeight: 700, opacity: processing ? 0.5 : 1 }}
         >
           {processing ? "Processing..." : "Approve"}
         </button>
         <button
           onClick={handleReject}
           disabled={processing}
-          style={{
-            flex: 1,
-            padding: "10px",
-            borderRadius: 8,
-            background: "transparent",
-            border: `1px solid ${G.border}`,
-            color: G.t2,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: processing ? "not-allowed" : "pointer",
-            opacity: processing ? 0.5 : 1,
-          }}
+          className="premium-btn"
+          style={{ flex: 1, padding: "10px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: 'transparent', opacity: processing ? 0.5 : 1 }}
         >
           Reject
         </button>
@@ -459,7 +410,7 @@ export default function IntelligenceTab({ notify }) {
             Loading anomalies...
           </div>
         ) : anomalies.length === 0 ? (
-          <div
+          <div className="premium-card"
             style={{
               textAlign: "center",
               padding: 60,
@@ -498,7 +449,7 @@ export default function IntelligenceTab({ notify }) {
             Loading pending items...
           </div>
         ) : pendingItems.length === 0 ? (
-          <div
+          <div className="premium-card"
             style={{
               textAlign: "center",
               padding: 60,

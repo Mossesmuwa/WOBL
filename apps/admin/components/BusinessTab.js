@@ -85,6 +85,7 @@ export default function BusinessTab({ notify }) {
           return (
             <div
               key={stage}
+              className="premium-card"
               style={{
                 padding: 16,
                 borderRadius: 12,
@@ -142,6 +143,7 @@ export default function BusinessTab({ notify }) {
             return (
               <div
                 key={stage}
+                className="premium-card"
                 style={{
                   padding: 16,
                   borderRadius: 12,
@@ -240,16 +242,8 @@ export default function BusinessTab({ notify }) {
       <div style={{ marginTop: 24, textAlign: "center" }}>
         <button
           onClick={() => notify?.("info", "Lead creation modal coming soon")}
-          style={{
-            padding: "12px 24px",
-            borderRadius: 10,
-            background: G.gold,
-            border: "none",
-            color: "#000",
-            fontSize: 14,
-            fontWeight: 800,
-            cursor: "pointer",
-          }}
+          className="premium-btn"
+          style={{ padding: "12px 24px", borderRadius: 10, fontSize: 14, fontWeight: 800 }}
         >
           + Add New Lead
         </button>

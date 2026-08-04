@@ -79,7 +79,7 @@ export default function SettingsTab({ notify }) {
       settings[settingKey] === "true" || settings[settingKey] === true;
 
     return (
-      <div
+      <div className="premium-card"
         style={{
           padding: 20,
           borderRadius: 12,
@@ -136,7 +136,7 @@ export default function SettingsTab({ notify }) {
     const value = parseInt(settings[settingKey]) || 0;
 
     return (
-      <div
+      <div className="premium-card"
         style={{
           padding: 20,
           borderRadius: 12,
@@ -215,6 +215,12 @@ export default function SettingsTab({ notify }) {
             settingKey="retry_failed_syncs"
             label="Auto-Retry Failed Syncs"
             description="Automatically retry provider sync jobs that fail"
+          />
+
+          <ToggleSetting
+            settingKey="premium_admin_ui"
+            label="Enable Premium Admin UI"
+            description="Toggle the premium gold-themed admin dashboard and additional controls for admins."
           />
 
           <h3

@@ -23,6 +23,7 @@ const G = {
 function KPICard({ label, value, color, trend, loading }) {
   return (
     <div
+      className="premium-card"
       style={{
         padding: 20,
         borderRadius: 12,
@@ -81,6 +82,7 @@ function QuickAction({ label, onClick, variant = "default" }) {
 
   return (
     <button
+      className="premium-btn"
       onClick={onClick}
       style={{
         padding: "10px 16px",
@@ -383,6 +385,70 @@ export default function OverviewTab({ notify, confirmAction }) {
                   {log.profiles?.display_name || "Unknown"} ·{" "}
                   {log.resource_type}/{log.resource_id}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Quick Actions */}
+      <div className="premium-card" style={{ marginBottom: 40 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <QuickAction
+            label="Sync All Providers"
+            onClick={runAllProviders}
+            variant="primary"
+          />
+          <QuickAction
+            label="Calculate Nova Scores"
+            onClick={calculateNovaScores}
+            variant="default"
+          />
+          <QuickAction
+            label="Export Data"
+            onClick={() => notify?.("info", "Export is coming soon")}
+            variant="default"
+          />
+          <QuickAction
+            label="View Logs"
+            onClick={() => notify?.("info", "Open Security tab for audit logs")}
+            variant="default"
+          />
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="premium-card">
+        <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Recent Activity</h3>
+        {recentActivity.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: 40,
+              color: G.t3,
+              fontSize: 14,
+            }}
+          >
+            No recent activity
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {recentActivity.map((log) => (
+              <div
+                key={log.id}
+                className="premium-card"
+                style={{ padding: 12, borderRadius: 8 }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 4,
+                  }}
+                >
+                  <span style={{ color: G.gold, fontWeight: 700 }}>{log.action}</span>
+                  <span style={{ color: G.t3, fontSize: 11 }}>{new Date(log.created_at).toLocaleString()}</span>
+                </div>
+                <div style={{ color: G.t2, fontSize: 12 }}>{log.profiles?.display_name || "Unknown"} · {log.resource_type}/{log.resource_id}</div>
               </div>
             ))}
           </div>

@@ -116,6 +116,7 @@ export default function UsersTab({ notify, confirmAction }) {
           <button
             key={f}
             onClick={() => setFilter(f)}
+            className="premium-btn"
             style={{
               padding: "8px 12px",
               borderRadius: 8,
@@ -149,6 +150,7 @@ export default function UsersTab({ notify, confirmAction }) {
           visibleUsers.map((u) => (
             <div
               key={u.id}
+              className="premium-card"
               style={{
                 background: G.bg2,
                 border: `1px solid ${G.border}`,
@@ -206,6 +208,7 @@ export default function UsersTab({ notify, confirmAction }) {
                           updateRole(u.id, { is_admin: false }, "Admin access revoked"),
                       })
                     }
+                    className="premium-btn"
                     style={actionBtn("danger")}
                   >
                     Revoke Admin
@@ -216,6 +219,7 @@ export default function UsersTab({ notify, confirmAction }) {
                     onClick={() =>
                       updateRole(u.id, { is_admin: true }, "Admin access granted")
                     }
+                    className="premium-btn"
                     style={actionBtn("default")}
                   >
                     Make Admin
@@ -235,6 +239,7 @@ export default function UsersTab({ notify, confirmAction }) {
                           updateRole(u.id, { is_pro: false }, "Pro access revoked"),
                       })
                     }
+                    className="premium-btn"
                     style={actionBtn("danger")}
                   >
                     Revoke Pro
@@ -243,6 +248,7 @@ export default function UsersTab({ notify, confirmAction }) {
                   <button
                     disabled={busyUserId === u.id}
                     onClick={() => updateRole(u.id, { is_pro: true }, "Pro access granted")}
+                    className="premium-btn"
                     style={actionBtn("success")}
                   >
                     Grant Pro

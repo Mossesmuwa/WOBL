@@ -124,6 +124,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [premiumEnabled, setPremiumEnabled] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [confirmState, setConfirmState] = useState({
     open: false,
@@ -155,7 +156,22 @@ export default function AdminDashboard() {
     }
 
     setUser(profile);
+    // fetch premium setting when admin signs in
+    fetchPremiumSetting();
     setLoading(false);
+  }
+
+  async function fetchPremiumSetting() {
+    try {
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "premium_admin_ui")
+        .single();
+      if (data) setPremiumEnabled(data.value === "true" || data.value === true);
+    } catch (err) {
+      console.error("Failed to fetch premium setting:", err);
+    }
   }
 
   function notify(type, message) {
@@ -215,12 +231,24 @@ export default function AdminDashboard() {
         <title>Admin Dashboard - Nova</title>
       </Head>
 
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+        html, body { font-family: 'Syne', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: ${G.bg}; color: ${G.t1}; }
+        .premium-header { background: linear-gradient(90deg, ${G.goldL}10, transparent); border-bottom: 1px solid ${G.borderG}; box-shadow: 0 6px 30px rgba(0,0,0,0.5); }
+        .premium-logo { display:flex; align-items:center; gap:8px; text-decoration:none }
+        .premium-logo .mark { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;background:linear-gradient(135deg, ${G.goldL}, ${G.gold}); color:#09090C }
+        .premium-badge { padding:8px 10px;border-radius:10px;background:linear-gradient(135deg, ${G.goldL}, ${G.gold});color:#09090C;font-weight:800 }
+        .premium-tabs button { padding:12px 16px;border-radius:10px;border:none;background:transparent;color:${G.t2};font-weight:800;cursor:pointer }
+        .premium-tabs button.active { color:${G.gold}; box-shadow: 0 6px 18px rgba(201,168,76,0.12); }
+        .premium-btn { background: linear-gradient(135deg, ${G.goldL}, ${G.gold}); color:#09090C; border:none; padding:10px 16px; border-radius:12px; font-weight:900; cursor:pointer }
+        .premium-card { background: linear-gradient(180deg, ${G.bg2}, ${G.bg3}); border:1px solid ${G.borderG}; border-radius:14px; padding:18px }
+      `}</style>
+
       <div style={{ minHeight: "100vh", background: G.bg }}>
         {/* Header */}
-        <div
+        <div className="premium-header"
           style={{
-            padding: "20px 24px",
-            borderBottom: `1px solid ${G.border}`,
+            padding: "18px 24px",
             background: G.bg2,
           }}
         >
@@ -234,68 +262,48 @@ export default function AdminDashboard() {
             }}
           >
             <div>
-              <h1
-                style={{
-                  fontSize: 24,
-                  fontWeight: 900,
-                  marginBottom: 4,
-                  color: G.t1,
-                }}
-              >
-                Nova Intelligence Admin
-              </h1>
-              <p style={{ fontSize: 13, color: G.t3 }}>
-                Welcome back, {user?.display_name || "Admin"}
-              </p>
+              <a className="premium-logo" href="/">
+                <div className="mark">◆</div>
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: G.gold }}>{'Nova Intelligence'}</div>
+                  <div style={{ fontSize: 12, color: G.t3 }}>Welcome back, {user?.display_name || "Admin"}</div>
+                </div>
+              </a>
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  background: G.gold + "15",
-                  color: G.gold,
-                  fontSize: 11,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                {user?.admin_role || "ADMIN"}
-              </div>
+              <div className="premium-badge">{user?.admin_role || "ADMIN"}</div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div
-          style={{
-            borderBottom: `1px solid ${G.border}`,
-            background: G.bg,
-            position: "sticky",
-            top: 0,
-            zIndex: 100,
-          }}
-        >
+        {premiumEnabled && (
           <div
             style={{
               maxWidth: 1600,
-              margin: "0 auto",
-              padding: "0 24px",
-              display: "flex",
-              gap: 8,
-              overflowX: "auto",
+              margin: "12px auto",
+              padding: "12px 24px",
+              borderRadius: 12,
+              border: `1px solid ${G.borderG}`,
+              background: G.gold + "12",
+              color: G.gold,
             }}
           >
+            <strong style={{ fontWeight: 900 }}>Premium Admin Enabled</strong>
+            <span style={{ marginLeft: 8, color: G.t2 }}>
+              You are using the premium gold-themed dashboard with expanded
+              controls.
+            </span>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{ borderBottom: `1px solid ${G.border}`, background: G.bg, position: "sticky", top: 0, zIndex: 100 }}>
+          <div className="premium-tabs" style={{ maxWidth:1600, margin: '0 auto', padding: '0 24px', display: 'flex', gap:8, overflowX:'auto' }}>
             {[
               { id: "overview", label: "Overview", icon: Icon.database },
               { id: "pipeline", label: "Pipeline", icon: Icon.refresh },
               { id: "control", label: "Control", icon: Icon.settings },
-              {
-                id: "notifications",
-                label: "Notifications",
-                icon: Icon.database,
-              },
+              { id: "notifications", label: "Notifications", icon: Icon.database },
               { id: "intelligence", label: "Intelligence", icon: Icon.brain },
               { id: "users", label: "Users", icon: Icon.users },
               { id: "security", label: "Security", icon: Icon.shield },
@@ -307,30 +315,7 @@ export default function AdminDashboard() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  style={{
-                    padding: "12px 16px",
-                    borderBottom:
-                      tab === t.id
-                        ? `2px solid ${G.gold}`
-                        : "2px solid transparent",
-                    background: "none",
-                    border: "none",
-                    color: tab === t.id ? G.gold : G.t3,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    whiteSpace: "nowrap",
-                    transition: "color 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (tab !== t.id) e.currentTarget.style.color = G.t2;
-                  }}
-                  onMouseLeave={(e) => {
-                    if (tab !== t.id) e.currentTarget.style.color = G.t3;
-                  }}
+                  className={tab===t.id? 'active': ''}
                 >
                   <IconComp /> {t.label}
                 </button>

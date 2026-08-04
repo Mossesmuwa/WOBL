@@ -4,29 +4,21 @@
 // PROTECTED: Admin-only page with role verification
 // ======================================================
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "shared/lib/supabase";
-import { checkAuth } from "shared/lib/checkAuth";
 
-const GOLD = {
-  primary: "#C9A84C",
-  light: "#E8C97A",
-  dark: "#9B7520",
-  glow: "rgba(201,168,76,0.15)",
-  glowHard: "rgba(201,168,76,0.35)",
-  bg: "#09090C",
-  surface: "#111116",
-  surface2: "#16161E",
-  border: "rgba(201,168,76,0.12)",
-  borderSoft: "rgba(255,255,255,0.06)",
-  text: "#F2F2F7",
-  muted: "#636366",
-  muted2: "#3A3A3E",
-  green: "#30D158",
-  red: "#FF453A",
-  orange: "#FF9F0A",
-};
+// The old trigger page has been consolidated into the main admin
+// dashboard. Keep a lightweight redirect so external links still work.
+
+export default function TriggerRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/dashboard");
+  }, [router]);
+
+  return null;
+}
 
 const PROVIDERS = [
   // No key needed
