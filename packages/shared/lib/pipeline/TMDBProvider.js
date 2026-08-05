@@ -1,7 +1,7 @@
 ﻿// lib/pipeline/TMDBProvider.js
 // Wobl — Movie & TV Content Pipeline
 // Fetches movies + TV from multiple TMDB endpoints with pagination,
-// retry logic, and real trending/featured classification.
+// retry logic, real trending/featured classification, and trailer videos.
 
 import slugify from "slugify";
 import { BaseProvider } from "../pipeline/BaseProvider.js";
@@ -13,8 +13,6 @@ const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
 const RETRY_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 500;
 
-// Endpoints tagged with their real signal meaning —
-// this replaces the old hardcoded `trending: false`
 const MOVIE_ENDPOINTS = [
   { path: "/trending/movie/week", signal: "trending" },
   { path: "/trending/movie/day", signal: "trending" },
@@ -41,10 +39,14 @@ export class TMDBProvider extends BaseProvider {
   /**
    * @param {Object} [options]
    * @param {number} [options.pages=3] — pages per endpoint (20 items/page)
+   * @param {number} [options.maxTrailerFetches=60] — cap on extra /videos
+   *   calls per run, since trailer fetching adds one request per item and
+   *   TMDB rate limits apply. Prioritizes trending items first.
    */
   constructor(options = {}) {
     super("TMDB");
     this.pages = options.pages || 3;
+    this.maxTrailerFetches = options.maxTrailerFetches ?? 60;
   }
 
   _isBearer(token) {
@@ -69,7 +71,6 @@ export class TMDBProvider extends BaseProvider {
       });
 
       if (res.status === 429 && attempt < RETRY_ATTEMPTS) {
-        // Rate limited — back off and retry
         await sleep(RETRY_DELAY_MS * (attempt + 1));
         return this._fetchPage(path, token, page, attempt + 1);
       }
@@ -96,15 +97,55 @@ export class TMDBProvider extends BaseProvider {
     for (let page = 1; page <= this.pages; page++) {
       const results = await this._fetchPage(path, token, page);
       all.push(...results);
-      if (results.length < 20) break; // reached last page
+      if (results.length < 20) break;
     }
     return all;
   }
 
   /**
-   * Fetch from all movie and TV endpoints.
-   * Returns { movies: [...], tv: [...] } where each raw item
-   * is tagged with which endpoint(s) it came from (_signals).
+   * Fetch trailer videos for a single movie/TV item.
+   * Returns { key, name, type, published_at } for the best available
+   * YouTube trailer, or null if none exists.
+   */
+  async _fetchVideos(mediaType, id, token, attempt = 0) {
+    try {
+      const url = `${TMDB_BASE}/${mediaType}/${id}/videos?language=en-US`;
+      const res = await fetch(url, { headers: this._getHeaders(token) });
+
+      if (res.status === 429 && attempt < RETRY_ATTEMPTS) {
+        await sleep(RETRY_DELAY_MS * (attempt + 1));
+        return this._fetchVideos(mediaType, id, token, attempt + 1);
+      }
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      const videos = (data.results || []).filter((v) => v.site === "YouTube");
+      if (!videos.length) return null;
+
+      const pick =
+        videos.find((v) => v.type === "Trailer" && v.official) ||
+        videos.find((v) => v.type === "Trailer") ||
+        videos.find((v) => v.type === "Teaser") ||
+        videos[0];
+
+      return {
+        key: pick.key,
+        name: pick.name,
+        type: pick.type,
+        published_at: pick.published_at || null,
+      };
+    } catch (err) {
+      console.warn(
+        `[TMDB] videos fetch failed for ${mediaType}/${id}:`,
+        err.message,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Fetch from all movie and TV endpoints, then attach trailer data to the
+   * highest-priority items (trending first) up to maxTrailerFetches.
    */
   async fetch() {
     const token = getEnvCredential(
@@ -118,7 +159,7 @@ export class TMDBProvider extends BaseProvider {
       );
     }
 
-    const movieMap = new Map(); // id -> { item, signals: Set }
+    const movieMap = new Map();
     const tvMap = new Map();
 
     for (const { path, signal } of MOVIE_ENDPOINTS) {
@@ -147,16 +188,40 @@ export class TMDBProvider extends BaseProvider {
       `[TMDB] Raw fetched — movies: ${movieMap.size}, tv: ${tvMap.size}`,
     );
 
-    return {
-      movies: Array.from(movieMap.values()),
-      tv: Array.from(tvMap.values()),
-    };
+    // Prioritize trending items for trailer fetching (capped, rate-limit safe)
+    const movieEntries = Array.from(movieMap.values());
+    const tvEntries = Array.from(tvMap.values());
+    const byTrendingFirst = (a, b) =>
+      Number(b.signals.has("trending")) - Number(a.signals.has("trending"));
+    movieEntries.sort(byTrendingFirst);
+    tvEntries.sort(byTrendingFirst);
+
+    let trailerBudget = this.maxTrailerFetches;
+
+    for (const entry of movieEntries) {
+      if (trailerBudget <= 0) break;
+      entry.trailer = await this._fetchVideos("movie", entry.item.id, token);
+      trailerBudget--;
+      await sleep(120); // gentle pacing between video calls
+    }
+
+    for (const entry of tvEntries) {
+      if (trailerBudget <= 0) break;
+      entry.trailer = await this._fetchVideos("tv", entry.item.id, token);
+      trailerBudget--;
+      await sleep(120);
+    }
+
+    console.log(
+      `[TMDB] Trailers fetched: ${
+        movieEntries.filter((e) => e.trailer).length +
+        tvEntries.filter((e) => e.trailer).length
+      }`,
+    );
+
+    return { movies: movieEntries, tv: tvEntries };
   }
 
-  /**
-   * Decide trending/featured flags from the real signals
-   * an item was found under, instead of hardcoding false.
-   */
   _classify(signals, voteAverage, voteCount) {
     const isTrending = signals.has("trending");
     const isFeatured = (voteAverage || 0) >= 7.5 && (voteCount || 0) >= 500;
@@ -166,7 +231,7 @@ export class TMDBProvider extends BaseProvider {
   transform({ movies = [], tv = [] }) {
     const items = [];
 
-    for (const { item: m, signals } of movies) {
+    for (const { item: m, signals, trailer } of movies) {
       const name = m.title || m.original_title || "Untitled";
       const slug = slugify(`${name} ${m.id}`, { lower: true, strict: true });
       const { trending, featured } = this._classify(
@@ -196,13 +261,17 @@ export class TMDBProvider extends BaseProvider {
         source_url: `https://www.themoviedb.org/movie/${m.id}`,
         source_id: String(m.id),
         source_name: "tmdb",
+        // Trailer fields — real gap fix. trailer_url stores the YouTube
+        // video key (not a full URL) so the player can build embed/thumbnail
+        // URLs directly: https://www.youtube.com/embed/{trailer_url}
+        trailer_url: trailer ? trailer.key : null,
         trending,
         featured,
         approved: true,
       });
     }
 
-    for (const { item: t, signals } of tv) {
+    for (const { item: t, signals, trailer } of tv) {
       const name = t.name || t.original_name || "Untitled";
       const slug = slugify(`${name} tv ${t.id}`, {
         lower: true,
@@ -236,6 +305,7 @@ export class TMDBProvider extends BaseProvider {
         source_url: `https://www.themoviedb.org/tv/${t.id}`,
         source_id: `tv-${t.id}`,
         source_name: "tmdb",
+        trailer_url: trailer ? trailer.key : null,
         trending,
         featured,
         approved: true,

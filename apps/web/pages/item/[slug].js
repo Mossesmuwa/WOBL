@@ -1,574 +1,298 @@
 // pages/item/[slug].js
-// Premium item detail page - complete intelligence layer with all 4 cores visible
+// Wobl — Movie/TV detail page
+// Shows real stats only (rating, popularity, year) — no fake scoring system.
+
 import Head from "next/head";
-import Image from "next/image";
-import { useState, useEffect } from "react";
-import { useSupabase } from "shared/lib/SupabaseContext";
-import * as Favorites from "shared/lib/favorites";
-import { colors } from "shared/lib/design";
-import { useToast } from "../../components/Toast";
-import { getSupabase } from "shared/lib/supabaseClient";
+import { getBySlug, getRelated } from "../../../../packages/shared/lib/items";
+import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
+import MovieCard from "../../components/MovieCard";
 
-// Import premium components
-import ScoreGauge from "../../components/ScoreGauge";
-import ScoreBreakdown from "../../components/ScoreBreakdown";
-import TrendAnalysis from "../../components/TrendAnalysis";
-import TrustBadge from "../../components/TrustBadge";
-import DataSources from "../../components/DataSources";
-import AuditTrail from "../../components/AuditTrail";
-import CompareButton from "../../components/CompareButton";
-import TrailerPlayer from "../../components/TrailerPlayer";
+export async function getStaticPaths() {
+  // Render on-demand — movie catalog is large and changes daily via sync.
+  return { paths: [], fallback: "blocking" };
+}
 
-export default function ItemDetail({
-  item,
-  novaScore,
-  quality,
-  dataSources,
-  changeHistory,
-}) {
-  const toast = useToast();
-  const { user, loading: authLoading } = useSupabase();
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const [saveCount, setSaveCount] = useState(item.save_count || 0);
-  const [saving, setSaving] = useState(false);
+export async function getStaticProps({ params }) {
+  const item = await getBySlug(params.slug);
+  if (!item) return { notFound: true };
 
-  useEffect(() => {
-    setSaveCount(item.save_count || 0);
-    setIsSaved(false);
-  }, [item.id]);
+  const related = await getRelated(item, 6);
 
-  useEffect(() => {
-    if (!item?.id || authLoading || !user) {
-      setIsSaved(false);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      const saved = await Favorites.isFavorited(item.id);
-      if (!cancelled) setIsSaved(saved);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [item?.id, user, authLoading]);
-
-  const handleSave = async () => {
-    if (authLoading) return;
-    if (!user) {
-      toast("Please log in to save items.", "warning");
-      return;
-    }
-    if (saving) return;
-
-    const wasSaved = isSaved;
-    setSaving(true);
-    setIsSaved(!wasSaved);
-    setSaveCount((current) => current + (wasSaved ? -1 : 1));
-
-    const result = wasSaved
-      ? await Favorites.removeFavorite(item.id)
-      : await Favorites.addFavorite(item.id);
-
-    if (!result.success) {
-      setIsSaved(wasSaved);
-      setSaveCount((current) => current + (wasSaved ? 1 : -1));
-      toast(result.error || "Couldn't update saved items.", "error");
-    } else {
-      toast(
-        wasSaved ? "Removed from saved items." : "Saved to your collection.",
-        "success",
-      );
-    }
-
-    setSaving(false);
+  return {
+    props: { item, related },
+    revalidate: 3600,
   };
+}
 
+export default function ItemDetailPage({ item, related }) {
   return (
     <>
       <Head>
-        <title>{item.name} | Intelligence Platform</title>
-        <meta name="description" content={item.short_desc} />
-        <meta property="og:title" content={item.name} />
-        <meta property="og:description" content={item.short_desc} />
-        <meta property="og:image" content={item.image} />
+        <title>{item.name} — Wobl</title>
+        <meta name="description" content={item.short_desc || item.name} />
       </Head>
 
-      <div style={{ minHeight: "100vh", background: colors.bg }}>
-        {/* Hero Header */}
-        <div
-          style={{
-            background: `linear-gradient(135deg, ${colors.bg2} 0%, ${colors.bg3} 100%)`,
-            borderBottom: `1px solid ${colors.bg3}`,
-            padding: "48px 24px",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {/* Background accent */}
+      <Navbar />
+
+      <main className="detail">
+        {item.backdrop_path && (
           <div
-            style={{
-              position: "absolute",
-              top: -100,
-              right: -100,
-              width: 300,
-              height: 300,
-              background: `radial-gradient(circle, ${colors.gold}10, transparent)`,
-              borderRadius: "50%",
-              pointerEvents: "none",
-            }}
+            className="backdrop"
+            style={{ backgroundImage: `url(${item.backdrop_path})` }}
           />
+        )}
+        <div className="backdrop-scrim" />
 
-          <div
-            style={{
-              maxWidth: 1200,
-              margin: "0 auto",
-              position: "relative",
-              zIndex: 1,
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "140px 1fr",
-                gap: 32,
-                alignItems: "start",
-              }}
-            >
-              {/* Item image */}
-              {item.image && (
-                <div
-                  style={{
-                    width: 140,
-                    height: 140,
-                    borderRadius: 16,
-                    overflow: "hidden",
-                    border: `2px solid ${colors.gold}40`,
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
-                  }}
-                >
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    width={140}
-                    height={140}
-                    style={{ objectFit: "cover" }}
-                  />
-                </div>
+        <div className="detail-content">
+          <div className="poster-col">
+            {item.image ? (
+              <img src={item.image} alt={item.name} className="poster" />
+            ) : (
+              <div className="poster poster-fallback">{item.name}</div>
+            )}
+          </div>
+
+          <div className="info-col">
+            {item.type === "tv" && <span className="eyebrow">Series</span>}
+            <h1 className="title">{item.name}</h1>
+
+            <div className="stats">
+              {item.year && <Stat label="Year" value={item.year} />}
+              {item.rating != null && (
+                <Stat label="Rating" value={`★ ${item.rating}`} highlight />
               )}
-
-              {/* Item info */}
-              <div>
-                <div style={{ marginBottom: 12 }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "6px 12px",
-                      background: colors.gold + "20",
-                      border: `1px solid ${colors.gold}40`,
-                      borderRadius: 8,
-                      color: colors.gold,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    {item.category_id}
-                  </span>
-                </div>
-
-                <h1
-                  style={{
-                    fontSize: 44,
-                    fontWeight: 900,
-                    margin: 0,
-                    marginBottom: 8,
-                    letterSpacing: "-0.02em",
-                    color: colors.t1,
-                  }}
-                >
-                  {item.name}
-                </h1>
-
-                <p
-                  style={{
-                    fontSize: 18,
-                    color: colors.t2,
-                    margin: 0,
-                    marginBottom: 20,
-                  }}
-                >
-                  {item.short_desc}
-                </p>
-
-                {/* Action buttons */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button
-                    onClick={() => setCompareOpen(true)}
-                    style={{
-                      padding: "12px 20px",
-                      background: colors.gold,
-                      color: "#000",
-                      border: "none",
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      transition: "all 0.3s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = "translateY(-2px)";
-                      e.currentTarget.style.boxShadow = `0 8px 20px ${colors.gold}40`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = "translateY(0)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  >
-                    ⚔️ Compare
-                  </button>
-
-                  <button
-                    onClick={handleSave}
-                    style={{
-                      padding: "12px 20px",
-                      background: isSaved ? colors.gold : colors.bg,
-                      color: isSaved ? "#000" : colors.t1,
-                      border: `1px solid ${isSaved ? colors.gold : colors.bg3}`,
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      transition: "all 0.3s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSaved) {
-                        e.currentTarget.style.borderColor = colors.gold;
-                        e.currentTarget.style.color = colors.gold;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSaved) {
-                        e.currentTarget.style.borderColor = colors.bg3;
-                        e.currentTarget.style.color = colors.t1;
-                      }
-                    }}
-                  >
-                    {isSaved ? "❤️" : "🖤"} Save ({saveCount})
-                  </button>
-
-                  <a
-                    href={item.url || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      padding: "12px 20px",
-                      background: colors.bg,
-                      color: colors.t1,
-                      border: `1px solid ${colors.bg3}`,
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      textDecoration: "none",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      transition: "all 0.3s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = colors.gold;
-                      e.currentTarget.style.color = colors.gold;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = colors.bg3;
-                      e.currentTarget.style.color = colors.t1;
-                    }}
-                  >
-                    🔗 Visit
-                  </a>
-                </div>
-              </div>
+              {item.rating_count > 0 && (
+                <Stat
+                  label="Votes"
+                  value={item.rating_count.toLocaleString()}
+                />
+              )}
+              {item.genre && <Stat label="Genre" value={item.genre} />}
             </div>
+
+            {item.long_desc && <p className="desc">{item.long_desc}</p>}
+
+            {item.trailer_url && (
+              <a
+                href={item.trailer_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="trailer-link"
+              >
+                Watch trailer →
+              </a>
+            )}
+
+            {item.source_url && (
+              <a
+                href={item.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="source-link"
+              >
+                View on TMDB →
+              </a>
+            )}
           </div>
         </div>
 
-        {/* Main content */}
-        <div style={{ padding: "48px 24px", maxWidth: 1200, margin: "0 auto" }}>
-          {Array.isArray(item?.metadata?.trailers) &&
-            item.metadata.trailers.length > 0 && (
-              <section style={{ marginBottom: 40 }}>
-                <TrailerPlayer
-                  tmdbId={item?.metadata?.tmdb_id || item?.id}
-                  slug={item?.slug}
-                  trailers={item.metadata.trailers}
-                  itemName={item.name}
-                />
-              </section>
-            )}
-
-          {/* CORE 2: RANKING - Nova Score (Hero section) */}
-          <section style={{ marginBottom: 60 }}>
-            <div style={{ marginBottom: 24 }}>
-              <h2
-                style={{
-                  fontSize: 28,
-                  fontWeight: 900,
-                  margin: 0,
-                  marginBottom: 8,
-                  color: colors.t1,
-                }}
-              >
-                📊 Intelligence Analysis
-              </h2>
-              <p
-                style={{
-                  fontSize: 14,
-                  color: colors.t3,
-                  margin: 0,
-                }}
-              >
-                Comprehensive ranking across multiple signals
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "240px 1fr",
-                gap: 48,
-                alignItems: "start",
-              }}
-            >
-              <div
-                style={{
-                  background: colors.bg2,
-                  padding: 32,
-                  borderRadius: 16,
-                  border: `1px solid ${colors.bg3}`,
-                  textAlign: "center",
-                }}
-              >
-                <ScoreGauge
-                  score={novaScore.value}
-                  trend={novaScore.percentChange}
-                  size={180}
-                />
-              </div>
-
-              <ScoreBreakdown breakdown={novaScore.breakdown} />
+        {related && related.length > 0 && (
+          <section className="related">
+            <span className="section-eyebrow">You Might Also Like</span>
+            <div className="related-grid">
+              {related.map((r) => (
+                <MovieCard key={r.id} item={r} />
+              ))}
             </div>
           </section>
+        )}
+      </main>
 
-          {/* CORE 2: RANKING - Why Trending */}
-          <section style={{ marginBottom: 60 }}>
-            <h2
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                margin: 0,
-                marginBottom: 24,
-                color: colors.t1,
-              }}
-            >
-              🚀 Signal Drivers
-            </h2>
-            <TrendAnalysis
-              reasons={[
-                "+2,400 GitHub stars this week",
-                "#1 on Product Hunt",
-                "Official announcement",
-                "Updated 1 hour ago",
-              ]}
-              percentChange={novaScore.percentChange}
-            />
-          </section>
+      <Footer />
 
-          {/* CORE 4: TRUST - Data quality */}
-          <section style={{ marginBottom: 60 }}>
-            <h2
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                margin: 0,
-                marginBottom: 24,
-                color: colors.t1,
-              }}
-            >
-              ✅ Data Quality & Trust
-            </h2>
-            <TrustBadge
-              freshness={quality.freshness}
-              completeness={quality.completeness}
-              confidence={quality.confidence}
-              lastUpdated={quality.lastUpdated}
-            />
-          </section>
-
-          {/* CORE 4: TRUST - Sources */}
-          <section style={{ marginBottom: 60 }}>
-            <h2
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                margin: 0,
-                marginBottom: 24,
-                color: colors.t1,
-              }}
-            >
-              🔗 Data Sources
-            </h2>
-            <DataSources sources={dataSources} />
-          </section>
-
-          {/* CORE 4: TRUST - Audit Trail */}
-          <section style={{ marginBottom: 60 }}>
-            <AuditTrail
-              dataSources={dataSources}
-              changeHistory={changeHistory}
-              lastVerified={quality.lastUpdated}
-            />
-          </section>
-
-          {/* Related items */}
-          <section
-            style={{
-              padding: 32,
-              background: colors.bg2,
-              borderRadius: 16,
-              border: `1px solid ${colors.bg3}`,
-              textAlign: "center",
-            }}
-          >
-            <h3
-              style={{
-                fontSize: 18,
-                fontWeight: 900,
-                margin: 0,
-                marginBottom: 12,
-                color: colors.t1,
-              }}
-            >
-              Want more intelligence?
-            </h3>
-            <p
-              style={{
-                fontSize: 14,
-                color: colors.t3,
-                margin: 0,
-                marginBottom: 16,
-              }}
-            >
-              Explore similar tools or subscribe to weekly intelligence reports
-            </p>
-            <button
-              style={{
-                padding: "12px 24px",
-                background: colors.gold,
-                color: "#000",
-                border: "none",
-                borderRadius: 10,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              Explore Tools
-            </button>
-          </section>
-        </div>
-      </div>
-
-      {/* Compare Modal */}
-      {compareOpen && (
-        <CompareButton
-          currentItem={item}
-          onClose={() => setCompareOpen(false)}
-        />
-      )}
+      <style jsx>{`
+        .detail {
+          position: relative;
+          background: var(--wobl-bg);
+          min-height: 100vh;
+        }
+        .backdrop {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 50vh;
+          background-size: cover;
+          background-position: center 20%;
+          filter: saturate(0.85);
+        }
+        .backdrop-scrim {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 50vh;
+          background: linear-gradient(
+            to bottom,
+            rgba(20, 17, 15, 0.3) 0%,
+            var(--wobl-bg) 95%
+          );
+        }
+        .detail-content {
+          position: relative;
+          z-index: 1;
+          display: grid;
+          grid-template-columns: 220px 1fr;
+          gap: 2rem;
+          max-width: 1000px;
+          margin: 0 auto;
+          padding: 8rem 2rem 3rem;
+        }
+        @media (max-width: 640px) {
+          .detail-content {
+            grid-template-columns: 1fr;
+            padding-top: 3rem;
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
+            gap: 1.25rem;
+          }
+          .poster-col {
+            /* On mobile the trailer already carries the visual weight —
+             * shrink the poster and let it sit beside the title instead
+             * of stacking full-width, saves scroll distance. */
+            display: flex;
+            justify-content: center;
+          }
+          .poster-col :global(img),
+          .poster-col :global(.poster-fallback) {
+            max-width: 140px;
+          }
+        }
+        @media (min-width: 1440px) {
+          /* Desktop-only: wider poster column, more breathing room —
+           * a flourish that would waste space on smaller viewports. */
+          .detail-content {
+            grid-template-columns: 280px 1fr;
+            max-width: 1200px;
+            gap: 3rem;
+          }
+        }
+        .poster {
+          width: 100%;
+          border-radius: 8px;
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+        }
+        .poster-fallback {
+          aspect-ratio: 2 / 3;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--wobl-surface);
+          font-family: var(--wobl-display);
+          color: var(--wobl-cream-dim);
+          text-align: center;
+          padding: 1rem;
+        }
+        .eyebrow {
+          font-family: var(--wobl-mono);
+          font-size: 0.75rem;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--wobl-amber);
+        }
+        .title {
+          font-family: var(--wobl-display);
+          font-size: clamp(1.8rem, 4vw, 2.75rem);
+          color: var(--wobl-cream);
+          margin: 0.3rem 0 1rem;
+          line-height: 1.1;
+        }
+        .stats {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        @media (max-width: 640px) {
+          .stats {
+            gap: 1rem;
+          }
+        }
+        .desc {
+          color: var(--wobl-cream-dim);
+          line-height: 1.6;
+          max-width: 65ch;
+          margin-bottom: 1.5rem;
+        }
+        .trailer-link,
+        .source-link {
+          display: inline-block;
+          font-family: var(--wobl-mono);
+          font-size: 0.9rem;
+          color: var(--wobl-marquee);
+          text-decoration: none;
+          margin-right: 1.5rem;
+          border-bottom: 1px solid var(--wobl-marquee);
+        }
+        .related {
+          max-width: 1000px;
+          margin: 0 auto;
+          padding: 1rem 2rem 4rem;
+        }
+        .section-eyebrow {
+          display: block;
+          font-family: var(--wobl-mono);
+          font-size: 0.72rem;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--wobl-marquee);
+          margin-bottom: 1rem;
+        }
+        .related-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 1.25rem;
+        }
+        @media (max-width: 640px) {
+          .related-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.6rem;
+          }
+        }
+      `}</style>
     </>
   );
 }
 
-export async function getServerSideProps({ params }) {
-  try {
-    const { slug } = params;
-
-    // Get item from DB
-    const { data: item, error } = await supabase
-      .from("items")
-      .select("*")
-      .eq("slug", slug)
-      .single();
-
-    if (error || !item) {
-      return { notFound: true };
-    }
-
-    // Mock data - replace with actual API calls
-    const novaScore = {
-      value: 91,
-      percentChange: 340,
-      breakdown: {
-        github: 95,
-        community: 88,
-        credibility: 100,
-        freshness: 99,
-      },
-    };
-
-    const quality = {
-      freshness: 99,
-      completeness: 96,
-      confidence: 94,
-      lastUpdated: "2 hours ago",
-    };
-
-    const dataSources = [
-      {
-        name: "GitHub",
-        url: "https://github.com",
-        type: "official",
-        credibility: 100,
-      },
-      {
-        name: "ProductHunt",
-        url: "https://producthunt.com",
-        type: "community",
-        credibility: 95,
-      },
-    ];
-
-    const changeHistory = [
-      { action: "Data synced", timestamp: "2 hours ago", admin: "System" },
-    ];
-
-    return {
-      props: {
-        item,
-        novaScore,
-        quality,
-        dataSources,
-        changeHistory,
-      },
-      revalidate: 3600,
-    };
-  } catch (err) {
-    console.error(err);
-    return { notFound: true };
-  }
+function Stat({ label, value, highlight }) {
+  return (
+    <div className="stat">
+      <span className="stat-label">{label}</span>
+      <span className={highlight ? "stat-value highlight" : "stat-value"}>
+        {value}
+      </span>
+      <style jsx>{`
+        .stat {
+          display: flex;
+          flex-direction: column;
+        }
+        .stat-label {
+          font-family: var(--wobl-mono);
+          font-size: 0.65rem;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--wobl-cream-dim);
+        }
+        .stat-value {
+          font-family: var(--wobl-display);
+          font-size: 1.1rem;
+          color: var(--wobl-cream);
+        }
+        .highlight {
+          color: var(--wobl-marquee);
+        }
+      `}</style>
+    </div>
+  );
 }
