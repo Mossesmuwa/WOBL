@@ -4,10 +4,7 @@ import { supabase } from "./supabase";
 export async function getCategories() {
   if (!supabase) return [];
   try {
-    const { data } = await supabase
-      .from("categories")
-      .select("*")
-      .order("name");
+    const { data } = await supabase.from("categories").select("*").order("name");
     return data || [];
   } catch {
     return [];
@@ -22,10 +19,7 @@ function applySort(query, sortBy) {
     case "popularity":
       return query.order("popularity", { ascending: false, nullsFirst: false });
     case "newest":
-      return query.order("release_date", {
-        ascending: false,
-        nullsFirst: false,
-      });
+      return query.order("release_date", { ascending: false, nullsFirst: false });
     case "name":
       return query.order("name", { ascending: true });
     case "trending":
@@ -40,12 +34,7 @@ function applySort(query, sortBy) {
 // ── Items by category (single source of truth) ─────────
 export async function getByCategory(catId, opts = {}) {
   if (!supabase) return [];
-  const {
-    limit = 24,
-    offset = 0,
-    sortBy = "trending",
-    freeOnly = false,
-  } = opts;
+  const { limit = 24, offset = 0, sortBy = "trending", freeOnly = false } = opts;
 
   try {
     let q = supabase
@@ -213,9 +202,7 @@ export async function getNewest(limit = 12, category = null) {
       .eq("approved", true)
       .not("image", "is", null);
     if (category) q = q.eq("category_id", category);
-    q = q
-      .order("release_date", { ascending: false, nullsFirst: false })
-      .limit(limit);
+    q = q.order("release_date", { ascending: false, nullsFirst: false }).limit(limit);
     const { data } = await q;
     return data || [];
   } catch {
