@@ -1,14 +1,12 @@
-<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="woblBg" cx="35%" cy="25%" r="80%">
-      <stop offset="0%" stop-color="#3D2C1F" />
-      <stop offset="100%" stop-color="#0A0908" />
-    </radialGradient>
+    <linearGradient id="woblFaviconGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#D9713C" />
+      <stop offset="100%" stop-color="#F2A65A" />
+    </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="url(#woblBg)" />
-  <path
-    d="M14 22 L21 44 L27 28 L33 44 L39 44 L46 22 L40 22 L35.5 38 L30 22 L26 22 L20.5 38 L20 22 Z"
-    fill="#D9713C"
-  />
-  <circle cx="32" cy="14" r="2.5" fill="#F2A65A" />
+  <rect width="32" height="32" rx="8" fill="#0A0908" />
+  <rect x="6" y="18" width="5" height="9" rx="2.5" fill="url(#woblFaviconGrad)" />
+  <rect x="13.5" y="12" width="5" height="15" rx="2.5" fill="url(#woblFaviconGrad)" />
+  <rect x="21" y="6" width="5" height="21" rx="2.5" fill="url(#woblFaviconGrad)" />
 </svg>
