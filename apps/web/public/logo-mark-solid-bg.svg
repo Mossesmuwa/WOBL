@@ -1,0 +1,17 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="woblBarGradBg" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#D9713C" />
+      <stop offset="100%" stop-color="#F2A65A" />
+    </linearGradient>
+    <radialGradient id="woblBgGlow" cx="35%" cy="20%" r="80%">
+      <stop offset="0%" stop-color="#241a13" />
+      <stop offset="100%" stop-color="#0A0908" />
+    </radialGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#woblBgGlow)" />
+  <rect x="13" y="36" width="9" height="17" rx="4.5" fill="url(#woblBarGradBg)" />
+  <rect x="27.5" y="24" width="9" height="29" rx="4.5" fill="url(#woblBarGradBg)" />
+  <rect x="42" y="14" width="9" height="39" rx="4.5" fill="url(#woblBarGradBg)" />
+  <circle cx="46.5" cy="10" r="2.8" fill="#F2A65A" />
+</svg>
