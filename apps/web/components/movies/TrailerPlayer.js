@@ -12,12 +12,7 @@ const normalizeTrailers = (list = []) =>
   (Array.isArray(list) ? list : [])
     .map((trailer) => {
       if (typeof trailer === "string") {
-        return {
-          key: trailer,
-          name: "Trailer",
-          type: "Trailer",
-          published_at: null,
-        };
+        return { key: trailer, name: "Trailer", type: "Trailer", published_at: null };
       }
       if (trailer && typeof trailer === "object" && trailer.key) return trailer;
       return null;
@@ -34,27 +29,9 @@ function PlayIcon({ size = 16 }) {
 
 function CloseIcon({ size = 18 }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function VolumeIcon({ size = 17 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
-      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
     </svg>
   );
 }
@@ -107,7 +84,6 @@ export default function TrailerPlayer({
   const [selectedTrailer, setSelectedTrailer] = useState(null);
   const [cinemaMode, setCinemaMode] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const hideTimer = useRef(null);
   const cinemaFrameRef = useRef(null);
 
@@ -119,25 +95,15 @@ export default function TrailerPlayer({
       setLoading(false);
       return;
     }
-    if (tmdbId || slug) {
-      fetchTrailers();
-    } else {
-      setLoading(false);
-    }
+    if (tmdbId || slug) fetchTrailers();
+    else setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmdbId, slug, trailersProp]);
-
-  useEffect(() => {
-    setThumbnailFailed(false);
-  }, [selectedTrailer?.key]);
 
   async function fetchTrailers() {
     setLoading(true);
     try {
-      const query = new URLSearchParams({
-        tmdb_id: tmdbId || "",
-        slug: slug || "",
-      }).toString();
+      const query = new URLSearchParams({ tmdb_id: tmdbId || "", slug: slug || "" }).toString();
       const res = await fetch(`/api/trailers?${query}`);
       if (res.ok) {
         const data = await res.json();
@@ -175,7 +141,6 @@ export default function TrailerPlayer({
     };
 
     window.addEventListener("keydown", onKeyDown);
-
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
@@ -183,35 +148,12 @@ export default function TrailerPlayer({
     };
   }, [cinemaMode, closeCinema, resetHideTimer]);
 
-  const selectTrailer = (trailer) => {
-    setSelectedTrailer(trailer);
-    setThumbnailFailed(false);
-  };
-
   if (loading) {
     return (
-      <div
-        className="wobl-trailer-loading"
-        style={{
-          position: "relative",
-          aspectRatio: "16/9",
-          borderRadius: W.radius,
-          overflow: "hidden",
-          background: W.surface,
-          marginBottom: 32,
-        }}
-      >
-        {backdropUrl && (
-          <img
-            src={backdropUrl}
-            alt=""
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3 }}
-          />
-        )}
+      <div className="wobl-trailer-loading" style={{ position: "relative", aspectRatio: "16/9", borderRadius: W.radius, overflow: "hidden", background: W.surface, marginBottom: 32 }}>
+        {backdropUrl && <img src={backdropUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3 }} />}
         <div style={{ position: "absolute", inset: 0, background: "rgba(10,9,8,0.58)" }} />
-        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-          <div className="wobl-loading-dot" aria-label="Loading trailer" />
-        </div>
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}><div className="wobl-loading-dot" aria-label="Loading trailer" /></div>
       </div>
     );
   }
@@ -219,34 +161,10 @@ export default function TrailerPlayer({
   if (trailers.length === 0) {
     if (!backdropUrl) return null;
     return (
-      <div
-        style={{
-          position: "relative",
-          aspectRatio: "16/9",
-          borderRadius: W.radius,
-          overflow: "hidden",
-          background: W.surface,
-          marginBottom: 32,
-        }}
-      >
+      <div style={{ position: "relative", aspectRatio: "16/9", borderRadius: W.radius, overflow: "hidden", background: W.surface, marginBottom: 32 }}>
         <img src={backdropUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 35%, rgba(10,9,8,0.78) 100%)" }} />
-        <div
-          style={{
-            position: "absolute",
-            bottom: 14,
-            left: 14,
-            ...glassPanel,
-            borderRadius: 20,
-            padding: "5px 12px",
-            fontFamily: W.monoFont,
-            fontSize: 10,
-            letterSpacing: "0.06em",
-            color: W.creamDim,
-          }}
-        >
-          TRAILER NOT AVAILABLE
-        </div>
+        <div style={{ position: "absolute", bottom: 14, left: 14, ...glassPanel, borderRadius: "20px", padding: "5px 12px", fontFamily: W.monoFont, fontSize: 10, letterSpacing: "0.06em", color: W.creamDim }}>TRAILER NOT AVAILABLE</div>
       </div>
     );
   }
@@ -262,72 +180,19 @@ export default function TrailerPlayer({
           whileHover={{ scale: 1.008 }}
           whileTap={{ scale: 0.985 }}
           aria-label={`Watch ${trailerLabel}`}
-          style={{
-            position: "relative",
-            width: "100%",
-            aspectRatio: "16/9",
-            borderRadius: W.radius,
-            overflow: "hidden",
-            border: `1px solid ${W.surfaceBorder}`,
-            cursor: "pointer",
-            padding: 0,
-            background: W.surface,
-            display: "block",
-          }}
+          style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: W.radius, overflow: "hidden", border: `1px solid ${W.surfaceBorder}`, cursor: "pointer", padding: 0, background: W.surface, display: "block" }}
         >
-          {!thumbnailFailed ? (
-            <Thumbnail
-              trailer={selectedTrailer}
-              large
-              className="wobl-trailer-image"
-              onError={() => setThumbnailFailed(true)}
-            />
-          ) : backdropUrl ? (
-            <img src={backdropUrl} alt="" className="wobl-trailer-image" />
-          ) : null}
-
+          <Thumbnail trailer={selectedTrailer} large className="wobl-trailer-image" />
           <div className="wobl-preview-vignette" />
           <div className="wobl-preview-sheen" />
-
-          <div
-            style={{
-              position: "absolute",
-              left: 20,
-              right: 20,
-              bottom: 18,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 16,
-              textAlign: "left",
-            }}
-          >
+          <div style={{ position: "absolute", left: 20, right: 20, bottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, textAlign: "left" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-              <motion.div
-                animate={{ scale: [1, 1.035, 1], opacity: [0.88, 1, 0.88] }}
-                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-                style={{
-                  width: 46,
-                  height: 46,
-                  flexShrink: 0,
-                  borderRadius: "50%",
-                  ...glassPanel,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: W.cream,
-                  border: `1px solid ${W.surfaceBorder}`,
-                }}
-              >
+              <motion.div animate={{ scale: [1, 1.035, 1], opacity: [0.88, 1, 0.88] }} transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }} style={{ width: 46, height: 46, flexShrink: 0, borderRadius: "50%", ...glassPanel, display: "flex", alignItems: "center", justifyContent: "center", color: W.cream, border: `1px solid ${W.surfaceBorder}` }}>
                 <PlayIcon size={17} />
               </motion.div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: W.bodyFont, fontSize: 13, fontWeight: 650, color: W.cream, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  Watch trailer
-                </div>
-                <div style={{ marginTop: 3, fontFamily: W.monoFont, fontSize: 9.5, color: W.creamDim, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {trailerLabel}
-                </div>
+                <div style={{ fontFamily: W.bodyFont, fontSize: 13, fontWeight: 650, color: W.cream, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Watch trailer</div>
+                <div style={{ marginTop: 3, fontFamily: W.monoFont, fontSize: 9.5, color: W.creamDim, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{trailerLabel}</div>
               </div>
             </div>
             <div className="wobl-preview-hint">OPEN CINEMA</div>
@@ -344,12 +209,9 @@ export default function TrailerPlayer({
             transition={{ duration: 0.24 }}
             className="wobl-cinema-overlay"
             onMouseMove={resetHideTimer}
-            onClick={(event) => {
-              if (event.target === event.currentTarget) closeCinema();
-            }}
+            onClick={(event) => { if (event.target === event.currentTarget) closeCinema(); }}
           >
             <div className="wobl-cinema-backdrop" />
-
             <motion.div
               ref={cinemaFrameRef}
               className="wobl-cinema-frame"
@@ -362,46 +224,25 @@ export default function TrailerPlayer({
                 <iframe
                   key={selectedTrailer.key}
                   title={`${itemName || "Wobl"} — ${trailerLabel}`}
-                  src={`https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&color=white`}
+                  src={`https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&color=white&controls=1`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
 
                 <AnimatePresence>
                   {controlsVisible && (
-                    <motion.div
-                      className="wobl-player-chrome"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.16 }}
-                    >
+                    <motion.div className="wobl-player-chrome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}>
                       <div className="wobl-player-topbar">
                         <div className="wobl-player-title">
                           <span>{itemName || "Wobl"}</span>
                           <small>{trailerLabel}</small>
                         </div>
-                        <button type="button" className="wobl-player-icon" onClick={closeCinema} aria-label="Close cinema mode" title="Close">
-                          <CloseIcon />
-                        </button>
+                        <button type="button" className="wobl-player-icon" onClick={closeCinema} aria-label="Close cinema mode" title="Close"><CloseIcon /></button>
                       </div>
-
                       <div className="wobl-player-bottom">
-                        <div className="wobl-player-progress" aria-hidden="true"><span /></div>
                         <div className="wobl-player-actions">
-                          <span className="wobl-player-meta">WATCHING TRAILER</span>
-                          <div className="wobl-player-actions-right">
-                            <button type="button" className="wobl-player-icon" aria-label="Volume" title="Volume"><VolumeIcon /></button>
-                            <button
-                              type="button"
-                              className="wobl-player-icon"
-                              aria-label="Fullscreen"
-                              title="Fullscreen"
-                              onClick={() => cinemaFrameRef.current?.requestFullscreen?.()}
-                            >
-                              <FullscreenIcon />
-                            </button>
-                          </div>
+                          <span className="wobl-player-meta">WOBL · TRAILER</span>
+                          <button type="button" className="wobl-player-icon" onClick={() => cinemaFrameRef.current?.requestFullscreen?.()} aria-label="Fullscreen" title="Fullscreen"><FullscreenIcon /></button>
                         </div>
                       </div>
                     </motion.div>
@@ -421,7 +262,7 @@ export default function TrailerPlayer({
               <motion.button
                 key={trailer.key}
                 type="button"
-                onClick={() => selectTrailer(trailer)}
+                onClick={() => setSelectedTrailer(trailer)}
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.985 }}
                 className={`wobl-trailer-thumb ${selected ? "is-selected" : ""}`}
@@ -430,9 +271,7 @@ export default function TrailerPlayer({
               >
                 <Thumbnail trailer={trailer} />
                 <span className="wobl-trailer-thumb-overlay" />
-                <span className="wobl-trailer-thumb-copy">
-                  <span>{trailer.name || trailer.type || "Trailer"}</span>
-                </span>
+                <span className="wobl-trailer-thumb-copy">{trailer.name || trailer.type || "Trailer"}</span>
               </motion.button>
             );
           })}
@@ -440,306 +279,42 @@ export default function TrailerPlayer({
       )}
 
       <style jsx>{`
-        .wobl-trailer-image {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-          transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .wobl-trailer-root button:hover .wobl-trailer-image {
-          transform: scale(1.025);
-        }
-
-        .wobl-preview-vignette {
-          position: absolute;
-          inset: 0;
-          background:
-            linear-gradient(180deg, rgba(10,9,8,0.04) 25%, rgba(10,9,8,0.82) 100%),
-            linear-gradient(90deg, rgba(10,9,8,0.28), transparent 45%);
-        }
-
-        .wobl-preview-sheen {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(115deg, rgba(255,255,255,0.07), transparent 28%, transparent 70%, rgba(217,113,60,0.05));
-          pointer-events: none;
-        }
-
-        .wobl-preview-hint {
-          flex-shrink: 0;
-          font-family: ${W.monoFont};
-          font-size: 9px;
-          letter-spacing: 0.1em;
-          color: ${W.creamDim};
-          padding: 7px 10px;
-          border: 1px solid ${W.surfaceBorder};
-          border-radius: 999px;
-          background: rgba(10,9,8,0.35);
-          backdrop-filter: blur(10px);
-        }
-
-        .wobl-cinema-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 32px;
-          background: rgba(7,6,5,0.88);
-          backdrop-filter: blur(18px) saturate(0.82);
-          cursor: default;
-        }
-
-        .wobl-cinema-backdrop {
-          position: absolute;
-          inset: -40px;
-          opacity: 0.16;
-          filter: blur(36px) saturate(0.55);
-          background-image: ${backdropUrl ? `url(${backdropUrl})` : "none"};
-          background-size: cover;
-          background-position: center;
-          pointer-events: none;
-        }
-
-        .wobl-cinema-frame {
-          position: relative;
-          width: min(1180px, 94vw);
-          max-height: calc(100vh - 64px);
-          aspect-ratio: 16 / 9;
-          z-index: 1;
-          border-radius: ${W.radius}px;
-          overflow: hidden;
-          box-shadow: 0 40px 100px rgba(0,0,0,0.68), 0 0 0 1px rgba(255,255,255,0.06);
-        }
-
-        .wobl-video-shell {
-          position: absolute;
-          inset: 0;
-          background: #050505;
-        }
-
-        .wobl-video-shell iframe {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          border: 0;
-          display: block;
-        }
-
-        .wobl-player-chrome {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          pointer-events: none;
-          background: linear-gradient(180deg, rgba(7,6,5,0.48), transparent 22%, transparent 68%, rgba(7,6,5,0.72));
-        }
-
-        .wobl-player-topbar,
-        .wobl-player-bottom {
-          padding: 16px;
-          pointer-events: auto;
-        }
-
-        .wobl-player-topbar {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-        }
-
-        .wobl-player-title {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          min-width: 0;
-          font-family: ${W.bodyFont};
-          font-size: 13px;
-          font-weight: 600;
-          color: ${W.cream};
-          text-shadow: 0 2px 12px rgba(0,0,0,0.5);
-        }
-
-        .wobl-player-title small {
-          font-family: ${W.monoFont};
-          font-size: 9px;
-          font-weight: 400;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: ${W.creamDim};
-        }
-
-        .wobl-player-icon {
-          width: 38px;
-          height: 38px;
-          flex-shrink: 0;
-          display: grid;
-          place-items: center;
-          border: 1px solid ${W.surfaceBorder};
-          border-radius: 50%;
-          background: rgba(10,9,8,0.45);
-          backdrop-filter: blur(14px);
-          color: ${W.cream};
-          cursor: pointer;
-          transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
-        }
-
-        .wobl-player-icon:hover {
-          transform: translateY(-1px);
-          background: rgba(10,9,8,0.72);
-          border-color: rgba(245,239,230,0.24);
-        }
-
-        .wobl-player-bottom {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .wobl-player-progress {
-          height: 2px;
-          width: 100%;
-          border-radius: 999px;
-          background: rgba(245,239,230,0.24);
-          overflow: hidden;
-        }
-
-        .wobl-player-progress span {
-          display: block;
-          width: 0;
-          height: 100%;
-          background: ${W.cream};
-          border-radius: inherit;
-        }
-
-        .wobl-player-actions {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .wobl-player-actions-right {
-          display: flex;
-          gap: 7px;
-        }
-
-        .wobl-player-meta {
-          font-family: ${W.monoFont};
-          font-size: 8px;
-          letter-spacing: 0.1em;
-          color: ${W.creamDim};
-        }
-
-        .wobl-trailer-list {
-          display: flex;
-          gap: 10px;
-          margin-top: 12px;
-          padding: 2px 1px 4px;
-          overflow-x: auto;
-          scrollbar-width: none;
-        }
-
-        .wobl-trailer-list::-webkit-scrollbar {
-          display: none;
-        }
-
-        .wobl-trailer-thumb {
-          position: relative;
-          flex: 0 0 156px;
-          aspect-ratio: 16 / 9;
-          padding: 0;
-          overflow: hidden;
-          border: 1px solid transparent;
-          border-radius: ${W.radiusSm}px;
-          background: ${W.surface};
-          cursor: pointer;
-        }
-
-        .wobl-trailer-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-          transition: transform 350ms ease;
-        }
-
-        .wobl-trailer-thumb:hover img {
-          transform: scale(1.035);
-        }
-
-        .wobl-trailer-thumb.is-selected {
-          border-color: rgba(245,239,230,0.42);
-        }
-
-        .wobl-trailer-thumb-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(180deg, transparent 38%, rgba(10,9,8,0.78));
-        }
-
-        .wobl-trailer-thumb-copy {
-          position: absolute;
-          left: 9px;
-          right: 9px;
-          bottom: 7px;
-          text-align: left;
-          font-family: ${W.monoFont};
-          font-size: 8px;
-          letter-spacing: 0.04em;
-          color: ${W.cream};
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          text-transform: uppercase;
-        }
-
-        .wobl-loading-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: ${W.creamDim};
-          box-shadow: 0 0 0 0 rgba(245,239,230,0.25);
-          animation: wobl-pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes wobl-pulse {
-          0%, 100% { opacity: 0.4; transform: scale(0.8); box-shadow: 0 0 0 0 rgba(245,239,230,0); }
-          50% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 8px rgba(245,239,230,0); }
-        }
-
+        .wobl-trailer-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .wobl-trailer-root button:hover .wobl-trailer-image { transform: scale(1.025); }
+        .wobl-preview-vignette { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,9,8,0.04) 25%, rgba(10,9,8,0.82) 100%), linear-gradient(90deg, rgba(10,9,8,0.28), transparent 45%); }
+        .wobl-preview-sheen { position: absolute; inset: 0; background: linear-gradient(115deg, rgba(255,255,255,0.07), transparent 28%, transparent 70%, rgba(217,113,60,0.05)); pointer-events: none; }
+        .wobl-preview-hint { flex-shrink: 0; font-family: ${W.monoFont}; font-size: 9px; letter-spacing: 0.1em; color: ${W.creamDim}; padding: 7px 10px; border: 1px solid ${W.surfaceBorder}; border-radius: 999px; background: rgba(10,9,8,0.35); backdrop-filter: blur(10px); }
+        .wobl-cinema-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 32px; background: rgba(7,6,5,0.88); backdrop-filter: blur(18px) saturate(0.82); cursor: default; }
+        .wobl-cinema-backdrop { position: absolute; inset: -40px; opacity: 0.16; filter: blur(36px) saturate(0.55); background-image: ${backdropUrl ? `url(${backdropUrl})` : "none"}; background-size: cover; background-position: center; pointer-events: none; }
+        .wobl-cinema-frame { position: relative; width: min(1180px, 94vw); max-height: calc(100vh - 64px); aspect-ratio: 16 / 9; z-index: 1; border-radius: ${W.radius}; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.68), 0 0 0 1px rgba(255,255,255,0.06); }
+        .wobl-video-shell { position: absolute; inset: 0; background: #050505; }
+        .wobl-video-shell iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+        .wobl-player-chrome { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; background: linear-gradient(180deg, rgba(7,6,5,0.48), transparent 22%, transparent 72%, rgba(7,6,5,0.6)); }
+        .wobl-player-topbar, .wobl-player-bottom { padding: 16px; pointer-events: auto; }
+        .wobl-player-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .wobl-player-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-family: ${W.bodyFont}; font-size: 13px; font-weight: 600; color: ${W.cream}; text-shadow: 0 2px 12px rgba(0,0,0,0.5); }
+        .wobl-player-title small { font-family: ${W.monoFont}; font-size: 9px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; color: ${W.creamDim}; }
+        .wobl-player-icon { width: 38px; height: 38px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid ${W.surfaceBorder}; border-radius: 50%; background: rgba(10,9,8,0.45); backdrop-filter: blur(14px); color: ${W.cream}; cursor: pointer; transition: transform 160ms ease, background 160ms ease, border-color 160ms ease; }
+        .wobl-player-icon:hover { transform: translateY(-1px); background: rgba(10,9,8,0.72); border-color: rgba(245,239,230,0.24); }
+        .wobl-player-bottom { display: flex; justify-content: flex-end; }
+        .wobl-player-actions { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px; }
+        .wobl-player-meta { font-family: ${W.monoFont}; font-size: 8px; letter-spacing: 0.1em; color: ${W.creamDim}; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .wobl-trailer-list { display: flex; gap: 10px; margin-top: 12px; padding: 2px 1px 4px; overflow-x: auto; scrollbar-width: none; }
+        .wobl-trailer-list::-webkit-scrollbar { display: none; }
+        .wobl-trailer-thumb { position: relative; flex: 0 0 156px; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; border: 1px solid transparent; border-radius: ${W.radiusSm}; background: ${W.surface}; cursor: pointer; }
+        .wobl-trailer-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 350ms ease; }
+        .wobl-trailer-thumb:hover img { transform: scale(1.035); }
+        .wobl-trailer-thumb.is-selected { border-color: rgba(245,239,230,0.42); }
+        .wobl-trailer-thumb-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 38%, rgba(10,9,8,0.78)); }
+        .wobl-trailer-thumb-copy { position: absolute; left: 9px; right: 9px; bottom: 7px; text-align: left; font-family: ${W.monoFont}; font-size: 8px; letter-spacing: 0.04em; color: ${W.cream}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+        .wobl-loading-dot { width: 8px; height: 8px; border-radius: 50%; background: ${W.creamDim}; box-shadow: 0 0 0 0 rgba(245,239,230,0.25); animation: wobl-pulse 1.5s ease-in-out infinite; }
+        @keyframes wobl-pulse { 0%, 100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
         @media (max-width: 640px) {
-          .wobl-cinema-overlay {
-            padding: 0;
-          }
-
-          .wobl-cinema-frame {
-            width: 100vw;
-            height: 100vh;
-            max-height: none;
-            aspect-ratio: auto;
-            border-radius: 0;
-          }
-
-          .wobl-player-topbar,
-          .wobl-player-bottom {
-            padding: 14px;
-          }
-
-          .wobl-preview-hint {
-            display: none;
-          }
-
-          .wobl-trailer-thumb {
-            flex-basis: 142px;
-          }
+          .wobl-cinema-overlay { padding: 0; }
+          .wobl-cinema-frame { width: 100vw; height: 100vh; max-height: none; aspect-ratio: auto; border-radius: 0; }
+          .wobl-player-topbar, .wobl-player-bottom { padding: 14px; }
+          .wobl-preview-hint { display: none; }
+          .wobl-trailer-thumb { flex-basis: 142px; }
         }
       `}</style>
     </div>
