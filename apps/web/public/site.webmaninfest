@@ -1,0 +1,17 @@
+{
+  "name": "Wobl",
+  "short_name": "Wobl",
+  "description": "See what's actually rising in movies and shows — real ratings, no algorithm noise.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0908",
+  "theme_color": "#0A0908",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

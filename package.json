@@ -2,6 +2,7 @@
   "name": "wobl",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "npm@10.9.7",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -9,6 +10,10 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build"
+  },
+  "overrides": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "turbo": "latest"

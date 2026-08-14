@@ -1,0 +1,65 @@
+/* styles/wobl-tokens.css */
+/* Wobl design tokens — cinema marquee direction.
+   Distinct from VURA's gold/obsidian palette on purpose:
+   this is a separate, independent project. */
+
+:root {
+  /* Backgrounds */
+  --wobl-bg: #14110f;
+  --wobl-surface: #2a2420;
+
+  /* Text */
+  --wobl-cream: #f5efe6;
+  --wobl-cream-dim: #b8ac9c;
+
+  /* Accents — marquee red-orange + golden-hour amber */
+  --wobl-marquee: #e8542a;
+  --wobl-amber: #f2a65a;
+
+  /* Typography */
+  --wobl-display: "Fraunces", Georgia, serif;
+  --wobl-body: "Inter", -apple-system, sans-serif;
+  --wobl-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  background: var(--wobl-bg);
+  color: var(--wobl-cream);
+  font-family: var(--wobl-body);
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+/* Global reduced-motion support. This catches CSS animations/transitions
+ * broadly; Framer Motion (motion/react) components respect the OS
+ * setting automatically via its own reduced-motion handling, but plain
+ * CSS keyframes (breathing hero, marquee drift, skeleton pulse) needed
+ * this explicit override — flagged as a gap multiple times, fixed here
+ * once, globally, instead of patching each component individually. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible focus states — keyboard navigation was flagged as missing
+ * across the site. This gives every interactive element a real, visible
+ * focus ring matching the marquee accent, instead of relying on
+ * inconsistent browser defaults against a dark background. */
+:focus-visible {
+  outline: 2px solid var(--wobl-marquee);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

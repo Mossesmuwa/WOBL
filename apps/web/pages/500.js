@@ -1,6 +1,6 @@
-// pages/404.js
-// Wobl — themed 404. "The reel ran out" per spec 3.3/5, not a generic
-// error page. Clear path back to /movies.
+// pages/500.js
+// Wobl — themed server error page. Per spec 5.0: calm inline message,
+// never a blank white screen or alarming red banner.
 
 import Head from "next/head";
 import Link from "next/link";
@@ -8,11 +8,11 @@ import Navbar from "../components/shared/Navbar";
 import Footer from "../components/shared/Footer";
 import { W } from "../components/shared/wobl-theme";
 
-export default function NotFoundPage() {
+export default function ServerErrorPage() {
   return (
     <>
       <Head>
-        <title>Reel's out — Wobl</title>
+        <title>Something skipped a frame — Wobl</title>
       </Head>
 
       <Navbar />
@@ -38,7 +38,7 @@ export default function NotFoundPage() {
               marginBottom: 10,
             }}
           >
-            404
+            500
           </div>
           <h1
             style={{
@@ -48,7 +48,7 @@ export default function NotFoundPage() {
               margin: "0 0 12px",
             }}
           >
-            The reel ran out.
+            Something skipped a frame.
           </h1>
           <p
             style={{
@@ -59,8 +59,7 @@ export default function NotFoundPage() {
               marginBottom: 24,
             }}
           >
-            Whatever you were looking for isn't on this print. Let's get you
-            back to something that's actually playing.
+            Nothing lost — just a hiccup on our end. Try again in a moment.
           </p>
           <Link
             href="/movies"
