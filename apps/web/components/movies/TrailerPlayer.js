@@ -1,9 +1,8 @@
 // components/TrailerPlayer.js
 // Wobl — Premium trailer player.
-// Idle glass state with a subtle breathing play button, expands into a
-// dimmed "cinema mode" on click, auto-hiding controls, YouTube embed.
-// Fetch/normalize logic kept from the original — only the surface and
-// motion are new.
+// Preview-first trailer experience with a focused cinema surface, graceful
+// thumbnail fallbacks, trailer switching, keyboard escape, scroll locking,
+// and restrained WOBL chrome around the YouTube playback surface.
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -27,7 +26,7 @@ const normalizeTrailers = (list = []) =>
 
 function PlayIcon({ size = 16 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M8 5v14l11-7z" />
     </svg>
   );
@@ -42,10 +41,57 @@ function CloseIcon({ size = 18 }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
+  );
+}
+
+function VolumeIcon({ size = 17 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4V5Z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+    </svg>
+  );
+}
+
+function FullscreenIcon({ size = 17 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+      <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" />
+    </svg>
+  );
+}
+
+function Thumbnail({ trailer, large = false, className = "" }) {
+  const [src, setSrc] = useState(
+    `https://img.youtube.com/vi/${trailer?.key}/${large ? "maxresdefault" : "mqdefault"}.jpg`,
+  );
+
+  useEffect(() => {
+    setSrc(
+      `https://img.youtube.com/vi/${trailer?.key}/${large ? "maxresdefault" : "mqdefault"}.jpg`,
+    );
+  }, [trailer?.key, large]);
+
+  if (!trailer?.key) return null;
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      onError={() => {
+        if (!src.endsWith("/hqdefault.jpg")) {
+          setSrc(`https://img.youtube.com/vi/${trailer.key}/hqdefault.jpg`);
+        }
+      }}
+      draggable="false"
+    />
   );
 }
 
@@ -56,16 +102,14 @@ export default function TrailerPlayer({
   slug,
   backdropUrl,
 }) {
-  const [trailers, setTrailers] = useState(() =>
-    normalizeTrailers(trailersProp),
-  );
-  const [loading, setLoading] = useState(
-    !trailersProp || trailersProp.length === 0,
-  );
+  const [trailers, setTrailers] = useState(() => normalizeTrailers(trailersProp));
+  const [loading, setLoading] = useState(!trailersProp || trailersProp.length === 0);
   const [selectedTrailer, setSelectedTrailer] = useState(null);
   const [cinemaMode, setCinemaMode] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const hideTimer = useRef(null);
+  const cinemaFrameRef = useRef(null);
 
   useEffect(() => {
     const normalized = normalizeTrailers(trailersProp);
@@ -82,6 +126,10 @@ export default function TrailerPlayer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tmdbId, slug, trailersProp]);
+
+  useEffect(() => {
+    setThumbnailFailed(false);
+  }, [selectedTrailer?.key]);
 
   async function fetchTrailers() {
     setLoading(true);
@@ -103,40 +151,72 @@ export default function TrailerPlayer({
     setLoading(false);
   }
 
-  // Auto-hide controls after 3s of inactivity while in cinema mode.
+  const closeCinema = useCallback(() => {
+    setCinemaMode(false);
+    setControlsVisible(true);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+  }, []);
+
   const resetHideTimer = useCallback(() => {
     setControlsVisible(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setControlsVisible(false), 3000);
+    hideTimer.current = setTimeout(() => setControlsVisible(false), 3200);
   }, []);
 
   useEffect(() => {
-    if (!cinemaMode) return;
+    if (!cinemaMode) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     resetHideTimer();
-    return () => hideTimer.current && clearTimeout(hideTimer.current);
-  }, [cinemaMode, resetHideTimer]);
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") closeCinema();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [cinemaMode, closeCinema, resetHideTimer]);
+
+  const selectTrailer = (trailer) => {
+    setSelectedTrailer(trailer);
+    setThumbnailFailed(false);
+  };
 
   if (loading) {
     return (
       <div
+        className="wobl-trailer-loading"
         style={{
-          ...glassPanel,
-          padding: 40,
-          textAlign: "center",
+          position: "relative",
+          aspectRatio: "16/9",
           borderRadius: W.radius,
-          color: W.creamDim,
-          fontFamily: W.bodyFont,
-          fontSize: 13,
+          overflow: "hidden",
+          background: W.surface,
+          marginBottom: 32,
         }}
       >
-        Loading trailer…
+        {backdropUrl && (
+          <img
+            src={backdropUrl}
+            alt=""
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3 }}
+          />
+        )}
+        <div style={{ position: "absolute", inset: 0, background: "rgba(10,9,8,0.58)" }} />
+        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+          <div className="wobl-loading-dot" aria-label="Loading trailer" />
+        </div>
       </div>
     );
   }
 
   if (trailers.length === 0) {
-    // Graceful fallback — static backdrop, small unobtrusive tag.
-    // Per spec: never show a broken video icon.
     if (!backdropUrl) return null;
     return (
       <div
@@ -145,251 +225,520 @@ export default function TrailerPlayer({
           aspectRatio: "16/9",
           borderRadius: W.radius,
           overflow: "hidden",
-          backgroundImage: `url(${backdropUrl})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
+          background: W.surface,
+          marginBottom: 32,
         }}
       >
+        <img src={backdropUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 35%, rgba(10,9,8,0.78) 100%)" }} />
         <div
           style={{
             position: "absolute",
-            bottom: 12,
-            left: 12,
+            bottom: 14,
+            left: 14,
             ...glassPanel,
             borderRadius: 20,
-            padding: "4px 12px",
+            padding: "5px 12px",
             fontFamily: W.monoFont,
             fontSize: 10,
+            letterSpacing: "0.06em",
             color: W.creamDim,
           }}
         >
-          Trailer not available
+          TRAILER NOT AVAILABLE
         </div>
       </div>
     );
   }
 
+  const trailerLabel = selectedTrailer?.name || selectedTrailer?.type || "Trailer";
+
   return (
-    <div
-      className="wobl-trailer-root"
-      style={{ marginBottom: 32 }}
-      onMouseMove={cinemaMode ? resetHideTimer : undefined}
-    >
-      {/* Idle state — glass card with breathing play button */}
+    <div className="wobl-trailer-root" style={{ marginBottom: 32 }} onMouseMove={cinemaMode ? resetHideTimer : undefined}>
       {!cinemaMode && (
         <motion.button
+          type="button"
           onClick={() => setCinemaMode(true)}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.008 }}
+          whileTap={{ scale: 0.985 }}
+          aria-label={`Watch ${trailerLabel}`}
           style={{
             position: "relative",
             width: "100%",
             aspectRatio: "16/9",
             borderRadius: W.radius,
             overflow: "hidden",
-            border: "none",
+            border: `1px solid ${W.surfaceBorder}`,
             cursor: "pointer",
             padding: 0,
-            backgroundImage: `url(https://img.youtube.com/vi/${selectedTrailer?.key}/maxresdefault.jpg)`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            background: W.surface,
+            display: "block",
           }}
         >
+          {!thumbnailFailed ? (
+            <Thumbnail
+              trailer={selectedTrailer}
+              large
+              className="wobl-trailer-image"
+              onError={() => setThumbnailFailed(true)}
+            />
+          ) : backdropUrl ? (
+            <img src={backdropUrl} alt="" className="wobl-trailer-image" />
+          ) : null}
+
+          <div className="wobl-preview-vignette" />
+          <div className="wobl-preview-sheen" />
+
           <div
             style={{
               position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(180deg, transparent 40%, rgba(10,9,8,0.75) 100%)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: 20,
               left: 20,
               right: 20,
+              bottom: 18,
               display: "flex",
               alignItems: "center",
-              gap: 12,
+              justifyContent: "space-between",
+              gap: 16,
+              textAlign: "left",
             }}
           >
-            <motion.div
-              animate={{ opacity: [0.65, 1, 0.65] }}
-              transition={{
-                duration: 2.4,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: "50%",
-                ...glassPanel,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: W.cream,
-              }}
-            >
-              <PlayIcon size={16} />
-            </motion.div>
-            <div style={{ textAlign: "left" }}>
-              <div
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+              <motion.div
+                animate={{ scale: [1, 1.035, 1], opacity: [0.88, 1, 0.88] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
                 style={{
-                  fontFamily: W.bodyFont,
-                  fontSize: 13,
-                  fontWeight: 600,
+                  width: 46,
+                  height: 46,
+                  flexShrink: 0,
+                  borderRadius: "50%",
+                  ...glassPanel,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   color: W.cream,
+                  border: `1px solid ${W.surfaceBorder}`,
                 }}
               >
-                Watch trailer
-              </div>
-              <div
-                style={{
-                  fontFamily: W.monoFont,
-                  fontSize: 10,
-                  color: W.creamDim,
-                }}
-              >
-                {selectedTrailer?.name || "Trailer"}
+                <PlayIcon size={17} />
+              </motion.div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: W.bodyFont, fontSize: 13, fontWeight: 650, color: W.cream, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  Watch trailer
+                </div>
+                <div style={{ marginTop: 3, fontFamily: W.monoFont, fontSize: 9.5, color: W.creamDim, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {trailerLabel}
+                </div>
               </div>
             </div>
+            <div className="wobl-preview-hint">OPEN CINEMA</div>
           </div>
         </motion.button>
       )}
 
-      {/* Cinema mode — dims page, expands player, auto-hiding glass controls */}
       <AnimatePresence>
-        {cinemaMode && (
+        {cinemaMode && selectedTrailer && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 999,
-              background: "rgba(10,9,8,0.92)",
-              backdropFilter: "blur(8px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: controlsVisible ? "default" : "none",
+            transition={{ duration: 0.24 }}
+            className="wobl-cinema-overlay"
+            onMouseMove={resetHideTimer}
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeCinema();
             }}
           >
-            <motion.div
-              className="wobl-cinema-frame"
-              initial={{ scale: 0.94, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.96, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
-              style={{
-                position: "relative",
-                width: "min(1100px, 92vw)",
-                aspectRatio: "16/9",
-                borderRadius: W.radius,
-                overflow: "hidden",
-                boxShadow: "0 40px 80px rgba(0,0,0,0.6)",
-              }}
-            >
-              <iframe
-                src={`https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&rel=0&modestbranding=1`}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+            <div className="wobl-cinema-backdrop" />
 
-              <AnimatePresence>
-                {controlsVisible && (
-                  <motion.button
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setCinemaMode(false)}
-                    style={{
-                      position: "absolute",
-                      top: 16,
-                      right: 16,
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      ...glassPanel,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: W.cream,
-                      cursor: "pointer",
-                      border: `0.5px solid ${W.surfaceBorder}`,
-                    }}
-                  >
-                    <CloseIcon />
-                  </motion.button>
-                )}
-              </AnimatePresence>
+            <motion.div
+              ref={cinemaFrameRef}
+              className="wobl-cinema-frame"
+              initial={{ scale: 0.965, y: 8, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.975, y: 5, opacity: 0 }}
+              transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
+            >
+              <div className="wobl-video-shell">
+                <iframe
+                  key={selectedTrailer.key}
+                  title={`${itemName || "Wobl"} — ${trailerLabel}`}
+                  src={`https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&color=white`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+
+                <AnimatePresence>
+                  {controlsVisible && (
+                    <motion.div
+                      className="wobl-player-chrome"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.16 }}
+                    >
+                      <div className="wobl-player-topbar">
+                        <div className="wobl-player-title">
+                          <span>{itemName || "Wobl"}</span>
+                          <small>{trailerLabel}</small>
+                        </div>
+                        <button type="button" className="wobl-player-icon" onClick={closeCinema} aria-label="Close cinema mode" title="Close">
+                          <CloseIcon />
+                        </button>
+                      </div>
+
+                      <div className="wobl-player-bottom">
+                        <div className="wobl-player-progress" aria-hidden="true"><span /></div>
+                        <div className="wobl-player-actions">
+                          <span className="wobl-player-meta">WATCHING TRAILER</span>
+                          <div className="wobl-player-actions-right">
+                            <button type="button" className="wobl-player-icon" aria-label="Volume" title="Volume"><VolumeIcon /></button>
+                            <button
+                              type="button"
+                              className="wobl-player-icon"
+                              aria-label="Fullscreen"
+                              title="Fullscreen"
+                              onClick={() => cinemaFrameRef.current?.requestFullscreen?.()}
+                            >
+                              <FullscreenIcon />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* More videos — only shown when idle, not during cinema mode */}
       {!cinemaMode && trailers.length > 1 && (
-        <div
-          style={{ display: "flex", gap: 10, marginTop: 12, overflowX: "auto" }}
-        >
-          {trailers
-            .filter((t) => t.key !== selectedTrailer?.key)
-            .map((trailer) => (
+        <div className="wobl-trailer-list" aria-label="More trailers">
+          {trailers.map((trailer) => {
+            const selected = trailer.key === selectedTrailer?.key;
+            return (
               <motion.button
                 key={trailer.key}
-                onClick={() => setSelectedTrailer(trailer)}
-                whileHover={{ scale: 1.04 }}
-                style={{
-                  flexShrink: 0,
-                  width: 140,
-                  aspectRatio: "16/9",
-                  borderRadius: W.radiusSm,
-                  overflow: "hidden",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 0,
-                  position: "relative",
-                  backgroundImage: `url(https://img.youtube.com/vi/${trailer.key}/mqdefault.jpg)`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }}
+                type="button"
+                onClick={() => selectTrailer(trailer)}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.985 }}
+                className={`wobl-trailer-thumb ${selected ? "is-selected" : ""}`}
+                aria-label={`Select ${trailer.name || trailer.type || "trailer"}`}
+                aria-pressed={selected}
               >
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background:
-                      "linear-gradient(180deg, transparent 50%, rgba(10,9,8,0.7) 100%)",
-                  }}
-                />
+                <Thumbnail trailer={trailer} />
+                <span className="wobl-trailer-thumb-overlay" />
+                <span className="wobl-trailer-thumb-copy">
+                  <span>{trailer.name || trailer.type || "Trailer"}</span>
+                </span>
               </motion.button>
-            ))}
+            );
+          })}
         </div>
       )}
 
       <style jsx>{`
+        .wobl-trailer-image {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .wobl-trailer-root button:hover .wobl-trailer-image {
+          transform: scale(1.025);
+        }
+
+        .wobl-preview-vignette {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(180deg, rgba(10,9,8,0.04) 25%, rgba(10,9,8,0.82) 100%),
+            linear-gradient(90deg, rgba(10,9,8,0.28), transparent 45%);
+        }
+
+        .wobl-preview-sheen {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(115deg, rgba(255,255,255,0.07), transparent 28%, transparent 70%, rgba(217,113,60,0.05));
+          pointer-events: none;
+        }
+
+        .wobl-preview-hint {
+          flex-shrink: 0;
+          font-family: ${W.monoFont};
+          font-size: 9px;
+          letter-spacing: 0.1em;
+          color: ${W.creamDim};
+          padding: 7px 10px;
+          border: 1px solid ${W.surfaceBorder};
+          border-radius: 999px;
+          background: rgba(10,9,8,0.35);
+          backdrop-filter: blur(10px);
+        }
+
+        .wobl-cinema-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          background: rgba(7,6,5,0.88);
+          backdrop-filter: blur(18px) saturate(0.82);
+          cursor: default;
+        }
+
+        .wobl-cinema-backdrop {
+          position: absolute;
+          inset: -40px;
+          opacity: 0.16;
+          filter: blur(36px) saturate(0.55);
+          background-image: ${backdropUrl ? `url(${backdropUrl})` : "none"};
+          background-size: cover;
+          background-position: center;
+          pointer-events: none;
+        }
+
+        .wobl-cinema-frame {
+          position: relative;
+          width: min(1180px, 94vw);
+          max-height: calc(100vh - 64px);
+          aspect-ratio: 16 / 9;
+          z-index: 1;
+          border-radius: ${W.radius}px;
+          overflow: hidden;
+          box-shadow: 0 40px 100px rgba(0,0,0,0.68), 0 0 0 1px rgba(255,255,255,0.06);
+        }
+
+        .wobl-video-shell {
+          position: absolute;
+          inset: 0;
+          background: #050505;
+        }
+
+        .wobl-video-shell iframe {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          border: 0;
+          display: block;
+        }
+
+        .wobl-player-chrome {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          pointer-events: none;
+          background: linear-gradient(180deg, rgba(7,6,5,0.48), transparent 22%, transparent 68%, rgba(7,6,5,0.72));
+        }
+
+        .wobl-player-topbar,
+        .wobl-player-bottom {
+          padding: 16px;
+          pointer-events: auto;
+        }
+
+        .wobl-player-topbar {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .wobl-player-title {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+          font-family: ${W.bodyFont};
+          font-size: 13px;
+          font-weight: 600;
+          color: ${W.cream};
+          text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+        }
+
+        .wobl-player-title small {
+          font-family: ${W.monoFont};
+          font-size: 9px;
+          font-weight: 400;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: ${W.creamDim};
+        }
+
+        .wobl-player-icon {
+          width: 38px;
+          height: 38px;
+          flex-shrink: 0;
+          display: grid;
+          place-items: center;
+          border: 1px solid ${W.surfaceBorder};
+          border-radius: 50%;
+          background: rgba(10,9,8,0.45);
+          backdrop-filter: blur(14px);
+          color: ${W.cream};
+          cursor: pointer;
+          transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+        }
+
+        .wobl-player-icon:hover {
+          transform: translateY(-1px);
+          background: rgba(10,9,8,0.72);
+          border-color: rgba(245,239,230,0.24);
+        }
+
+        .wobl-player-bottom {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .wobl-player-progress {
+          height: 2px;
+          width: 100%;
+          border-radius: 999px;
+          background: rgba(245,239,230,0.24);
+          overflow: hidden;
+        }
+
+        .wobl-player-progress span {
+          display: block;
+          width: 0;
+          height: 100%;
+          background: ${W.cream};
+          border-radius: inherit;
+        }
+
+        .wobl-player-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .wobl-player-actions-right {
+          display: flex;
+          gap: 7px;
+        }
+
+        .wobl-player-meta {
+          font-family: ${W.monoFont};
+          font-size: 8px;
+          letter-spacing: 0.1em;
+          color: ${W.creamDim};
+        }
+
+        .wobl-trailer-list {
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+          padding: 2px 1px 4px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+
+        .wobl-trailer-list::-webkit-scrollbar {
+          display: none;
+        }
+
+        .wobl-trailer-thumb {
+          position: relative;
+          flex: 0 0 156px;
+          aspect-ratio: 16 / 9;
+          padding: 0;
+          overflow: hidden;
+          border: 1px solid transparent;
+          border-radius: ${W.radiusSm}px;
+          background: ${W.surface};
+          cursor: pointer;
+        }
+
+        .wobl-trailer-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          transition: transform 350ms ease;
+        }
+
+        .wobl-trailer-thumb:hover img {
+          transform: scale(1.035);
+        }
+
+        .wobl-trailer-thumb.is-selected {
+          border-color: rgba(245,239,230,0.42);
+        }
+
+        .wobl-trailer-thumb-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(180deg, transparent 38%, rgba(10,9,8,0.78));
+        }
+
+        .wobl-trailer-thumb-copy {
+          position: absolute;
+          left: 9px;
+          right: 9px;
+          bottom: 7px;
+          text-align: left;
+          font-family: ${W.monoFont};
+          font-size: 8px;
+          letter-spacing: 0.04em;
+          color: ${W.cream};
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-transform: uppercase;
+        }
+
+        .wobl-loading-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: ${W.creamDim};
+          box-shadow: 0 0 0 0 rgba(245,239,230,0.25);
+          animation: wobl-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes wobl-pulse {
+          0%, 100% { opacity: 0.4; transform: scale(0.8); box-shadow: 0 0 0 0 rgba(245,239,230,0); }
+          50% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 8px rgba(245,239,230,0); }
+        }
+
         @media (max-width: 640px) {
-          /* Mobile: cinema mode goes true full-bleed — no rounded corners,
-           * no margins. A centered floating panel wastes precious screen
-           * space on a small viewport; full-screen takeover matches how
-           * every native mobile video player behaves. */
-          :global(.wobl-cinema-frame) {
-            width: 100vw !important;
-            height: 100vh !important;
-            aspect-ratio: unset !important;
-            border-radius: 0 !important;
+          .wobl-cinema-overlay {
+            padding: 0;
+          }
+
+          .wobl-cinema-frame {
+            width: 100vw;
+            height: 100vh;
+            max-height: none;
+            aspect-ratio: auto;
+            border-radius: 0;
+          }
+
+          .wobl-player-topbar,
+          .wobl-player-bottom {
+            padding: 14px;
+          }
+
+          .wobl-preview-hint {
+            display: none;
+          }
+
+          .wobl-trailer-thumb {
+            flex-basis: 142px;
           }
         }
       `}</style>
