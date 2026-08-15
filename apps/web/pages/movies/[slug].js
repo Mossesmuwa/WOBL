@@ -1,5 +1,5 @@
 // pages/movies/[slug].js
-// Wobl — Professional Movie & Series Detail Page with Dedicated Inline Player & Glassmorphism UI
+// Wobl — Professional Movie & Series Detail Page with Fixed Player Bounds & Responsive Mobile Order
 
 import { useEffect } from "react";
 import { useRouter } from "next/router";
@@ -135,13 +135,15 @@ export default function MovieDetailPage({ item, related }) {
 
               <div className="player-wrapper">
                 {hasMediaSource ? (
-                  <TrailerPlayer
-                    tmdbId={item.source_id}
-                    slug={item.slug}
-                    itemName={item.name}
-                    trailers={item.trailer_url ? [item.trailer_url] : []}
-                    backdropUrl={backdrop}
-                  />
+                  <div className="player-contain-fix">
+                    <TrailerPlayer
+                      tmdbId={item.source_id}
+                      slug={item.slug}
+                      itemName={item.name}
+                      trailers={item.trailer_url ? [item.trailer_url] : []}
+                      backdropUrl={backdrop}
+                    />
+                  </div>
                 ) : (
                   <div
                     className="fallback-banner"
@@ -168,7 +170,7 @@ export default function MovieDetailPage({ item, related }) {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Sticky Glass Sidebar for Metadata & Poster */}
+          {/* RIGHT COLUMN (Desktop) / TOP ON MOBILE: Poster & Metadata Sidebar */}
           <aside className="sidebar-meta">
             <div className="info-card glass-panel">
               <div className="poster-container">
@@ -272,6 +274,13 @@ export default function MovieDetailPage({ item, related }) {
           display: flex;
           flex-direction: column;
           gap: 2.5rem;
+          order: 1; /* Default desktop order */
+        }
+
+        .sidebar-meta {
+          position: sticky;
+          top: 2rem;
+          order: 2; /* Default desktop order */
         }
 
         .player-section {
@@ -293,14 +302,35 @@ export default function MovieDetailPage({ item, related }) {
           letter-spacing: 0.05em;
         }
 
+        /* Strict container bounds fix for the player sizing bug */
         .player-wrapper {
           width: 100%;
           aspect-ratio: 16 / 9;
           background: #000;
           border-radius: 14px;
           overflow: hidden;
+          position: relative;
           border: 1px solid rgba(255, 255, 255, 0.12);
           box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+        }
+
+        .player-contain-fix {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .player-contain-fix :global(iframe),
+        .player-contain-fix :global(video),
+        .player-contain-fix :global(div) {
+          width: 100% !important;
+          height: 100% !important;
+          max-width: 100% !important;
+          max-height: 100% !important;
         }
 
         .fallback-banner {
@@ -321,11 +351,6 @@ export default function MovieDetailPage({ item, related }) {
           font-family: var(--wobl-mono, monospace);
           font-size: 0.85rem;
           color: rgba(255, 255, 255, 0.7);
-        }
-
-        .sidebar-meta {
-          position: sticky;
-          top: 2rem;
         }
 
         /* High-End Glassmorphism Panel Styles */
@@ -483,6 +508,7 @@ export default function MovieDetailPage({ item, related }) {
           gap: 1.25rem;
         }
 
+        /* Responsive Mobile Reordering: Poster/Details come first, player follows */
         @media (max-width: 960px) {
           .page-grid {
             grid-template-columns: 1fr;
@@ -490,6 +516,10 @@ export default function MovieDetailPage({ item, related }) {
           }
           .sidebar-meta {
             position: static;
+            order: 1; /* Pushes poster and movie details to the very top on mobile */
+          }
+          .content-stage {
+            order: 2; /* Pushes player and storyline below the details card on mobile */
           }
         }
       `}</style>
