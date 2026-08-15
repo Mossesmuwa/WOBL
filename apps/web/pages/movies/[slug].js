@@ -1,5 +1,8 @@
 // pages/movies/[slug].js
-// WOBL — Premium Movie & Series Detail Page
+// Wobl — Premium Movie & Series Detail Page
+// Real rating ring (not inline text), richer ambient backdrop, scroll
+// reveal on each section, poster hover lift. Cast/trailer/credits logic
+// unchanged from the working version.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
@@ -8,17 +11,18 @@ import { getBySlug, getRelated } from "shared/lib/items";
 
 import Navbar from "../../components/shared/Navbar";
 import Footer from "../../components/shared/Footer";
+import Reveal from "../../components/shared/Reveal";
 import MovieCard from "../../components/movies/MovieCard";
 import TrailerPlayer from "../../components/movies/TrailerPlayer";
 import CastList from "../../components/movies/CastList";
 import MovieSEO from "../../components/movies/MovieSEO";
 import SaveButton from "../../components/movies/SaveButton";
 import ShareButton from "../../components/movies/ShareButton";
+import RatingRing from "../../components/movies/RatingRing";
 import { W } from "../../components/shared/wobl-theme";
 
 function slugify(text) {
   if (!text) return "";
-
   return text
     .toString()
     .toLowerCase()
@@ -29,221 +33,98 @@ function slugify(text) {
 }
 
 export async function getStaticPaths() {
-  return {
-    paths: [],
-    fallback: "blocking",
-  };
+  return { paths: [], fallback: "blocking" };
 }
 
 export async function getStaticProps({ params }) {
   const slug = params?.slug;
-
-  if (!slug) {
-    return {
-      notFound: true,
-    };
-  }
+  if (!slug) return { notFound: true };
 
   try {
     const item = await getBySlug(slug);
-
-    if (!item) {
-      return {
-        notFound: true,
-      };
-    }
-
+    if (!item) return { notFound: true };
     const related = (await getRelated(item, 6)) || [];
 
-    /*
-     * IMPORTANT:
-     *
-     * We DO NOT fetch TMDB credits here.
-     *
-     * The movie page must not depend on TMDB credits.
-     */
-    return {
-      props: {
-        item,
-        related,
-      },
-      revalidate: 3600,
-    };
+    // Credits are fetched live client-side via /api/tmdb/credits —
+    // intentionally not fetched here so the page never depends on TMDB
+    // being up at build/revalidate time.
+    return { props: { item, related }, revalidate: 3600 };
   } catch (error) {
     console.error("Failed to fetch detail item:", error);
-
-    return {
-      notFound: true,
-    };
+    return { notFound: true };
   }
 }
 
 export default function MovieDetailPage({ item, related }) {
   const router = useRouter();
-
-  /*
-   * ==========================================================
-   * CREDITS STATE
-   * ==========================================================
-   *
-   * Credits are completely optional.
-   *
-   * The movie page renders regardless of these values.
-   */
-
-  const [credits, setCredits] = useState({
-    cast: [],
-    crew: [],
-  });
-
+  const [credits, setCredits] = useState({ cast: [], crew: [] });
   const [creditsLoading, setCreditsLoading] = useState(true);
-
-  /*
-   * ==========================================================
-   * VIEW TRACKING
-   * ==========================================================
-   */
 
   useEffect(() => {
     if (!item?.slug) return;
-
     fetch("/api/track-view", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        slug: item.slug,
-      }),
-    }).catch(() => {
-      /*
-       * View tracking is non-critical.
-       * Never break the movie page because tracking failed.
-       */
-    });
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: item.slug }),
+    }).catch(() => {});
   }, [item?.slug]);
-
-  /*
-   * ==========================================================
-   * DIRECT TMDB CREDITS
-   * ==========================================================
-   */
 
   useEffect(() => {
     if (!item?.source_id) {
       setCreditsLoading(false);
       return;
     }
-
     let cancelled = false;
 
     async function loadCredits() {
       try {
         setCreditsLoading(true);
-
         const query = new URLSearchParams();
-
         query.set("tmdb_id", String(item.source_id));
-
         const response = await fetch(`/api/tmdb/credits?${query.toString()}`, {
           method: "GET",
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         });
-
-        /*
-         * Even if the API returns an error status,
-         * do NOT break the movie page.
-         */
         if (!response.ok) {
-          if (!cancelled) {
-            setCredits({
-              cast: [],
-              crew: [],
-            });
-          }
-
+          if (!cancelled) setCredits({ cast: [], crew: [] });
           return;
         }
-
         const data = await response.json();
-
-        if (cancelled) {
-          return;
-        }
-
-        /*
-         * Only accept arrays.
-         *
-         * This protects the page if TMDB/API gives us
-         * unexpected or incomplete data.
-         */
-        const cast = Array.isArray(data?.cast) ? data.cast : [];
-
-        const crew = Array.isArray(data?.crew) ? data.crew : [];
-
+        if (cancelled) return;
         setCredits({
-          cast,
-          crew,
+          cast: Array.isArray(data?.cast) ? data.cast : [],
+          crew: Array.isArray(data?.crew) ? data.crew : [],
         });
       } catch (error) {
-        /*
-         * THIS IS INTENTIONAL.
-         *
-         * TMDB being unavailable must only affect
-         * Cast & Crew.
-         *
-         * The movie page continues working.
-         */
         console.warn(
           "[MovieDetail] Credits unavailable:",
           error?.message || error,
         );
-
-        if (!cancelled) {
-          setCredits({
-            cast: [],
-            crew: [],
-          });
-        }
+        if (!cancelled) setCredits({ cast: [], crew: [] });
       } finally {
-        if (!cancelled) {
-          setCreditsLoading(false);
-        }
+        if (!cancelled) setCreditsLoading(false);
       }
     }
 
     loadCredits();
-
     return () => {
       cancelled = true;
     };
   }, [item?.source_id]);
 
-  /*
-   * ==========================================================
-   * FALLBACK PAGE
-   * ==========================================================
-   */
-
   if (router.isFallback || !item) {
     return (
       <>
         <Navbar />
-
         <main className="loading-page" style={{ background: W.bg }}>
           <div className="page-skeleton" />
         </main>
-
         <Footer />
-
         <style jsx>{`
           .loading-page {
             min-height: 100vh;
             padding: 3rem 2rem;
           }
-
           .page-skeleton {
             max-width: 1260px;
             height: 70vh;
@@ -252,13 +133,11 @@ export default function MovieDetailPage({ item, related }) {
             background: rgba(255, 255, 255, 0.035);
             animation: woblPulse 1.5s ease-in-out infinite;
           }
-
           @keyframes woblPulse {
             0%,
             100% {
               opacity: 0.45;
             }
-
             50% {
               opacity: 0.8;
             }
@@ -268,28 +147,20 @@ export default function MovieDetailPage({ item, related }) {
     );
   }
 
-  /*
-   * ==========================================================
-   * MOVIE DATA
-   * ==========================================================
-   */
-
   const genres =
     typeof item.genre === "string"
       ? item.genre
           .split(",")
-          .map((genre) => genre.trim())
+          .map((g) => g.trim())
           .filter(Boolean)
       : [];
 
   const backdrop = item.backdrop_path || item.image || "";
-
-  const poster = item.poster_path || item.image || "";
+  const poster = item.image || "";
 
   return (
     <>
       <MovieSEO item={item} />
-
       <Navbar />
 
       <main className="movie-page" style={{ background: W.bg }}>
@@ -297,15 +168,10 @@ export default function MovieDetailPage({ item, related }) {
           <div
             className="ambient-backdrop"
             aria-hidden="true"
-            style={{
-              backgroundImage: `url(${backdrop})`,
-            }}
+            style={{ backgroundImage: `url(${backdrop})` }}
           />
         )}
-
-        {/* =====================================================
-            HERO
-            ===================================================== */}
+        {backdrop && <div className="ambient-wash" aria-hidden="true" />}
 
         <section className="hero">
           <div className="hero-inner">
@@ -322,35 +188,32 @@ export default function MovieDetailPage({ item, related }) {
 
               <div className="movie-information">
                 <div className="info-topline">
-                  <div className="identity-label">
-                    <span className="eyebrow">
-                      {item.type === "tv" ? "TV Series" : "Movie"}
-                    </span>
-                  </div>
-
+                  <span className="eyebrow">
+                    {item.type === "tv" ? "TV Series" : "Movie"}
+                  </span>
                   <div className="actions">
                     <SaveButton item={item} />
                     <ShareButton item={item} />
                   </div>
                 </div>
 
-                <h1 className="title">{item.name}</h1>
+                <div className="title-rating-row">
+                  <h1 className="title">{item.name}</h1>
+                  {item.rating != null && <RatingRing rating={item.rating} />}
+                </div>
 
                 <div className="meta-row">
-                  {item.rating != null && (
-                    <span className="rating">★ {item.rating}</span>
-                  )}
-
                   {item.year && <span>{item.year}</span>}
-
-                  {item.runtime && <span>{item.runtime} min</span>}
+                  {item.rating_count > 0 && (
+                    <span>{item.rating_count.toLocaleString()} votes</span>
+                  )}
                 </div>
 
                 {genres.length > 0 && (
                   <div className="genre-pills">
-                    {genres.map((genre) => (
-                      <span key={genre} className="genre-pill">
-                        {genre}
+                    {genres.map((g) => (
+                      <span key={g} className="genre-pill">
+                        {g}
                       </span>
                     ))}
                   </div>
@@ -373,102 +236,82 @@ export default function MovieDetailPage({ item, related }) {
           </div>
         </section>
 
-        {/* =====================================================
-            STORYLINE
-            ===================================================== */}
-
-        <section className="content-section storyline-section">
-          <div className="content-inner">
-            <div className="section-heading">
-              <span className="section-eyebrow">Storyline</span>
-
-              <span className="section-line" />
-            </div>
-
-            {item.long_desc ? (
-              <p className="long-desc">{item.long_desc}</p>
-            ) : (
-              <p className="empty-copy">
-                No storyline is available for this title yet.
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* =====================================================
-            TRAILER
-            ===================================================== */}
-
-        <section className="content-section trailer-section">
-          <div className="content-inner trailer-inner">
-            <div className="section-heading">
-              <div>
-                <span className="section-eyebrow">Watch Trailer</span>
-
-                <h2 className="section-title">
-                  {item.type === "tv"
-                    ? "Watch the latest trailer"
-                    : "Watch the official trailer"}
-                </h2>
-              </div>
-            </div>
-
-            <div className="trailer-wrapper">
-              <TrailerPlayer
-                tmdbId={item.source_id}
-                slug={item.slug}
-                itemName={item.name}
-                trailers={item.trailer_url ? [item.trailer_url] : []}
-                backdropUrl={backdrop}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* =====================================================
-            CAST & CREW
-            ===================================================== */}
-
-        <section className="content-section cast-section">
-          <div className="content-inner">
-            <div className="section-heading">
-              <span className="section-eyebrow">Cast & Crew</span>
-
-              <span className="section-line" />
-            </div>
-
-            {/*
-             * This component is completely independent
-             * from the rest of the movie page.
-             */}
-            <CastList
-              cast={credits.cast}
-              crew={credits.crew}
-              loading={creditsLoading}
-            />
-          </div>
-        </section>
-
-        {/* =====================================================
-            RELATED
-            ===================================================== */}
-
-        {related.length > 0 && (
-          <section className="related-section">
-            <div className="related-container">
+        <Reveal>
+          <section className="content-section storyline-section">
+            <div className="content-inner">
               <div className="section-heading">
-                <span className="section-eyebrow">You Might Also Like</span>
-
+                <span className="section-eyebrow">Storyline</span>
                 <span className="section-line" />
               </div>
+              {item.long_desc ? (
+                <p className="long-desc">{item.long_desc}</p>
+              ) : (
+                <p className="empty-copy">
+                  No storyline is available for this title yet.
+                </p>
+              )}
+            </div>
+          </section>
+        </Reveal>
 
-              <div className="related-grid">
-                {related.map((relatedItem) => (
-                  <MovieCard key={relatedItem.id} item={relatedItem} />
-                ))}
+        <Reveal delay={0.05}>
+          <section className="content-section trailer-section">
+            <div className="content-inner trailer-inner">
+              <div className="section-heading">
+                <div>
+                  <span className="section-eyebrow">Watch Trailer</span>
+                  <h2 className="section-title">
+                    {item.type === "tv"
+                      ? "Watch the latest trailer"
+                      : "Watch the official trailer"}
+                  </h2>
+                </div>
+              </div>
+              <div className="trailer-wrapper">
+                <TrailerPlayer
+                  tmdbId={item.source_id}
+                  slug={item.slug}
+                  itemName={item.name}
+                  trailers={item.trailer_url ? [item.trailer_url] : []}
+                  backdropUrl={backdrop}
+                />
               </div>
             </div>
           </section>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <section className="content-section cast-section">
+            <div className="content-inner">
+              <div className="section-heading">
+                <span className="section-eyebrow">Cast & Crew</span>
+                <span className="section-line" />
+              </div>
+              <CastList
+                cast={credits.cast}
+                crew={credits.crew}
+                loading={creditsLoading}
+              />
+            </div>
+          </section>
+        </Reveal>
+
+        {related.length > 0 && (
+          <Reveal delay={0.15}>
+            <section className="related-section">
+              <div className="related-container">
+                <div className="section-heading">
+                  <span className="section-eyebrow">You Might Also Like</span>
+                  <span className="section-line" />
+                </div>
+                <div className="related-grid">
+                  {related.map((r) => (
+                    <MovieCard key={r.id} item={r} />
+                  ))}
+                </div>
+              </div>
+            </section>
+          </Reveal>
         )}
       </main>
 
@@ -481,7 +324,6 @@ export default function MovieDetailPage({ item, related }) {
           padding-bottom: 7rem;
           overflow: hidden;
         }
-
         .ambient-backdrop {
           position: absolute;
           z-index: 0;
@@ -491,50 +333,54 @@ export default function MovieDetailPage({ item, related }) {
           height: 780px;
           background-size: cover;
           background-position: center top;
-          opacity: 0.13;
-          filter: blur(80px);
+          opacity: 0.28;
+          filter: blur(60px) saturate(1.1);
           transform: scale(1.08);
           pointer-events: none;
-
           mask-image: linear-gradient(
             to bottom,
             black 0%,
-            rgba(0, 0, 0, 0.7) 45%,
+            rgba(0, 0, 0, 0.6) 45%,
             transparent 100%
           );
-
           -webkit-mask-image: linear-gradient(
             to bottom,
             black 0%,
-            rgba(0, 0, 0, 0.7) 45%,
+            rgba(0, 0, 0, 0.6) 45%,
             transparent 100%
           );
         }
-
+        .ambient-wash {
+          position: absolute;
+          z-index: 0;
+          top: -120px;
+          left: 0;
+          right: 0;
+          height: 780px;
+          background: radial-gradient(
+            ellipse at 30% 10%,
+            rgba(217, 113, 60, 0.15),
+            transparent 55%
+          );
+          pointer-events: none;
+        }
         .hero,
         .content-section,
         .related-section {
           position: relative;
           z-index: 1;
         }
-
         .hero {
           max-width: 1260px;
           margin: 0 auto;
           padding: 4.5rem 2rem 3.5rem;
         }
-
-        .hero-inner {
-          width: 100%;
-        }
-
         .movie-identity {
           display: grid;
           grid-template-columns: 250px minmax(0, 680px);
           gap: 3rem;
           align-items: start;
         }
-
         .poster-container {
           width: 250px;
           aspect-ratio: 2 / 3;
@@ -545,20 +391,26 @@ export default function MovieDetailPage({ item, related }) {
           box-shadow:
             0 30px 70px rgba(0, 0, 0, 0.5),
             0 0 0 1px rgba(255, 255, 255, 0.02);
+          transition:
+            transform 0.3s ease,
+            box-shadow 0.3s ease;
         }
-
+        .poster-container:hover {
+          transform: translateY(-4px);
+          box-shadow:
+            0 40px 90px rgba(0, 0, 0, 0.6),
+            0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
         .poster {
           display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
-
         .movie-information {
           min-width: 0;
           padding-top: 0.15rem;
         }
-
         .info-topline {
           display: flex;
           align-items: center;
@@ -566,11 +418,6 @@ export default function MovieDetailPage({ item, related }) {
           gap: 1rem;
           min-height: 34px;
         }
-
-        .identity-label {
-          min-width: 0;
-        }
-
         .eyebrow,
         .section-eyebrow {
           font-family: var(--wobl-mono, monospace);
@@ -580,24 +427,27 @@ export default function MovieDetailPage({ item, related }) {
           text-transform: uppercase;
           color: var(--wobl-amber, #f59e0b);
         }
-
         .actions {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          margin-left: auto;
         }
-
+        .title-rating-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 1rem;
+          margin: 0.55rem 0 0.4rem;
+        }
         .title {
-          max-width: 800px;
-          margin: 0.55rem 0 0.8rem;
+          max-width: 640px;
+          margin: 0;
           font-family: var(--wobl-display, sans-serif);
           font-size: clamp(2.5rem, 5vw, 4.5rem);
           line-height: 0.98;
           letter-spacing: -0.04em;
           color: var(--wobl-cream, #fff);
         }
-
         .meta-row {
           display: flex;
           flex-wrap: wrap;
@@ -608,25 +458,17 @@ export default function MovieDetailPage({ item, related }) {
           font-size: 0.78rem;
           color: var(--wobl-cream-dim, #bbb);
         }
-
         .meta-row > span + span::before {
           content: "·";
           margin-right: 0.55rem;
           color: rgba(255, 255, 255, 0.35);
         }
-
-        .rating {
-          color: var(--wobl-amber, #f59e0b);
-          font-weight: 600;
-        }
-
         .genre-pills {
           display: flex;
           flex-wrap: wrap;
           gap: 0.4rem;
           margin-bottom: 1.3rem;
         }
-
         .genre-pill {
           padding: 0.3rem 0.7rem;
           border: 1px solid rgba(255, 255, 255, 0.1);
@@ -635,8 +477,14 @@ export default function MovieDetailPage({ item, related }) {
           color: var(--wobl-cream-dim, #ccc);
           font-family: var(--wobl-mono, monospace);
           font-size: 0.66rem;
+          transition:
+            border-color 0.2s ease,
+            color 0.2s ease;
         }
-
+        .genre-pill:hover {
+          border-color: var(--wobl-amber, #f59e0b);
+          color: var(--wobl-cream, #fff);
+        }
         .short-desc {
           max-width: 62ch;
           margin: 0;
@@ -644,7 +492,6 @@ export default function MovieDetailPage({ item, related }) {
           font-size: 0.98rem;
           line-height: 1.75;
         }
-
         .director-credit {
           margin-top: 1.5rem;
           padding-top: 1.15rem;
@@ -653,40 +500,33 @@ export default function MovieDetailPage({ item, related }) {
           font-family: var(--wobl-mono, monospace);
           font-size: 0.77rem;
         }
-
         .director-credit a {
           color: var(--wobl-amber, #f59e0b);
           text-decoration: none;
         }
-
         .director-credit a:hover {
           text-decoration: underline;
         }
-
         .content-section {
           max-width: 1260px;
           margin: 0 auto;
           padding: 0 2rem;
         }
-
         .content-inner {
           padding: 3rem 0;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
-
         .section-heading {
           display: flex;
           align-items: center;
           gap: 1rem;
           margin-bottom: 1.25rem;
         }
-
         .section-line {
           flex: 1;
           height: 1px;
           background: rgba(255, 255, 255, 0.06);
         }
-
         .long-desc {
           max-width: 860px;
           margin: 0;
@@ -694,23 +534,19 @@ export default function MovieDetailPage({ item, related }) {
           font-size: 1.02rem;
           line-height: 1.85;
         }
-
         .empty-copy {
           margin: 0;
           color: rgba(255, 255, 255, 0.4);
           font-size: 0.9rem;
         }
-
         .trailer-inner {
           padding-top: 3.25rem;
           padding-bottom: 3.75rem;
         }
-
         .trailer-inner .section-heading {
           align-items: flex-end;
           margin-bottom: 1.5rem;
         }
-
         .section-title {
           margin: 0.4rem 0 0;
           color: var(--wobl-cream, #fff);
@@ -719,158 +555,128 @@ export default function MovieDetailPage({ item, related }) {
           font-weight: 600;
           letter-spacing: -0.02em;
         }
-
         .trailer-wrapper {
           width: min(100%, 1080px);
         }
-
         .cast-section .content-inner {
           padding-top: 3.25rem;
         }
-
         .related-section {
           max-width: 1260px;
           margin: 0 auto;
           padding: 0 2rem;
         }
-
         .related-container {
           padding-top: 3.25rem;
           border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
-
         .related-grid {
           display: grid;
           grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 1.15rem;
         }
-
         @media (max-width: 960px) {
           .hero {
             padding-top: 3rem;
           }
-
           .movie-identity {
             grid-template-columns: 210px minmax(0, 1fr);
             gap: 2rem;
           }
-
           .poster-container {
             width: 210px;
           }
-
           .title {
             font-size: clamp(2.2rem, 6vw, 3.4rem);
           }
-
           .related-grid {
             grid-template-columns: repeat(4, minmax(0, 1fr));
           }
         }
-
         @media (max-width: 700px) {
           .hero {
             padding: 2rem 1rem 2.5rem;
           }
-
           .movie-identity {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 1.75rem;
           }
-
           .poster-container {
             width: min(230px, 62vw);
           }
-
           .movie-information {
             width: 100%;
             text-align: center;
           }
-
           .info-topline {
             justify-content: center;
           }
-
-          .actions {
-            margin-left: 0;
+          .title-rating-row {
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
           }
-
           .title {
             margin-top: 0.65rem;
             font-size: clamp(2rem, 9vw, 2.7rem);
             line-height: 1;
+            text-align: center;
           }
-
           .meta-row {
             justify-content: center;
           }
-
           .genre-pills {
             justify-content: center;
           }
-
           .short-desc {
             margin: 0 auto;
             font-size: 0.92rem;
             line-height: 1.7;
           }
-
           .director-credit {
             text-align: center;
           }
-
           .content-section {
             padding-left: 1rem;
             padding-right: 1rem;
           }
-
           .content-inner {
             padding-top: 2.4rem;
             padding-bottom: 2.75rem;
           }
-
           .section-heading {
             gap: 0.75rem;
           }
-
           .section-eyebrow {
             white-space: nowrap;
             font-size: 0.65rem;
           }
-
           .long-desc {
             font-size: 0.95rem;
             line-height: 1.75;
           }
-
           .trailer-inner {
             padding-top: 2.75rem;
             padding-bottom: 3rem;
           }
-
           .trailer-inner .section-heading {
             display: block;
           }
-
           .section-title {
             font-size: 1.35rem;
           }
-
           .trailer-wrapper {
             width: 100%;
           }
-
           .related-section {
             padding-left: 1rem;
             padding-right: 1rem;
           }
-
           .related-container {
             padding-top: 2.75rem;
           }
-
           .related-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.9rem;
