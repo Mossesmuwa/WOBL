@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { getByCategory, getByGenre } from "shared/lib/items";
+import { getByCategory } from "shared/lib/items";
 import { getAllGenres } from "shared/lib/movies";
 import Navbar from "components/shared/Navbar";
 import Footer from "components/shared/Footer";
@@ -26,14 +26,11 @@ export async function getServerSideProps(context) {
 
   let initialItems = [];
   try {
-    if (genre) {
-      initialItems = await getByGenre(genre, { limit: PAGE_SIZE, type });
-    } else {
-      initialItems = await getByCategory(type, {
-        limit: PAGE_SIZE,
-        sortBy: sort,
-      });
-    }
+    initialItems = await getByCategory(type, {
+      limit: PAGE_SIZE,
+      sortBy: sort,
+      genre: genre || undefined,
+    });
   } catch (err) {
     console.error("Failed to load explore archive:", err);
   }
@@ -89,7 +86,6 @@ export default function ExploreArchive({
 
       setLoadingMore(true);
 
-      // Update URL query params without full page reload
       const query = { sort: nextSort, type: nextType };
       if (nextGenre) query.genre = nextGenre;
       router.push({ pathname: router.pathname, query }, undefined, {
@@ -97,18 +93,11 @@ export default function ExploreArchive({
       });
 
       try {
-        let data = [];
-        if (nextGenre) {
-          data = await getByGenre(nextGenre, {
-            limit: PAGE_SIZE,
-            type: nextType,
-          });
-        } else {
-          data = await getByCategory(nextType, {
-            limit: PAGE_SIZE,
-            sortBy: nextSort,
-          });
-        }
+        const data = await getByCategory(nextType, {
+          limit: PAGE_SIZE,
+          sortBy: nextSort,
+          genre: nextGenre || undefined,
+        });
         setItems(data);
         setOffset(data.length);
         setHasMore(data.length === PAGE_SIZE);
@@ -127,20 +116,12 @@ export default function ExploreArchive({
     setLoadingMore(true);
 
     try {
-      let more = [];
-      if (activeGenre) {
-        more = await getByGenre(activeGenre, {
-          limit: PAGE_SIZE,
-          offset,
-          type,
-        });
-      } else {
-        more = await getByCategory(type, {
-          limit: PAGE_SIZE,
-          offset,
-          sortBy: sort,
-        });
-      }
+      const more = await getByCategory(type, {
+        limit: PAGE_SIZE,
+        offset,
+        sortBy: sort,
+        genre: activeGenre || undefined,
+      });
       setItems((prev) => [...prev, ...more]);
       setOffset((prev) => prev + more.length);
       setHasMore(more.length === PAGE_SIZE);
@@ -178,14 +159,12 @@ export default function ExploreArchive({
 
       <main className="explore-destination">
         <div className="explore-container">
-          {/* Page Header */}
           <div className="explore-header">
             <div>
               <span className="eyebrow-accent">Complete Directory</span>
               <h1 className="explore-title">Library Archive</h1>
             </div>
 
-            {/* Type Toggle: Movies vs Series */}
             <div className="type-toggle-group">
               <button
                 onClick={() => updateQueryAndFetch({ type: "movies" })}
@@ -202,7 +181,6 @@ export default function ExploreArchive({
             </div>
           </div>
 
-          {/* Control Dock: Sorting & Genres */}
           <div className="control-dock">
             <div className="sort-pill-group">
               {SORTS.map((s) => (
@@ -225,7 +203,6 @@ export default function ExploreArchive({
             />
           </div>
 
-          {/* Main Catalog Grid */}
           {items.length === 0 && !loadingMore ? (
             <div className="empty-catalog">
               <p>No titles found matching these parameters.</p>
@@ -369,7 +346,6 @@ export default function ExploreArchive({
         }
 
         .genre-dock {
-          padding-bottom: 0.5rem;
           border-bottom: 1px solid rgba(255, 255, 255, 0.06);
           padding-bottom: 1.5rem;
         }
