@@ -1,6 +1,17 @@
 // components/movies/CastList.js
-// Wobl — Cast & Crew
-// Fetches credits directly from WOBL's API instead of relying on DB metadata.
+// WOBL — Cast & Crew
+//
+// Cast/crew is fetched directly from TMDB through the WOBL API.
+// It is intentionally NOT required for the movie page to render.
+//
+// Expected:
+//   <CastList tmdbId={item.source_id} />
+//
+// Movie source_id:
+//   "12345"
+//
+// TV source_id:
+//   "tv-94997"
 
 import { useEffect, useMemo, useState } from "react";
 import { W } from "../shared/wobl-theme";
@@ -25,20 +36,95 @@ function parseMediaId(rawId) {
   return null;
 }
 
-function initials(name) {
-  return String(name || "?")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0))
-    .join("")
-    .toUpperCase();
+function getInitials(name) {
+  const value = String(name || "").trim();
+
+  if (!value) {
+    return "?";
+  }
+
+  const parts = value.split(/\s+/).filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function getProfileUrl(profilePath) {
+  if (!profilePath) {
+    return null;
+  }
+
+  if (profilePath.startsWith("http://")) {
+    return profilePath;
+  }
+
+  if (profilePath.startsWith("https://")) {
+    return profilePath;
+  }
+
+  if (profilePath.startsWith("/")) {
+    return `https://image.tmdb.org/t/p/w185${profilePath}`;
+  }
+
+  return `https://image.tmdb.org/t/p/w185/${profilePath}`;
+}
+
+function PersonCard({ person, crew = false }) {
+  const profileUrl = getProfileUrl(person.profile_path);
+
+  const role = crew
+    ? person.job || person.department || "Crew"
+    : person.character || "Cast";
+
+  return (
+    <div className="person-card">
+      <div className="person-photo-wrap">
+        {profileUrl ? (
+          <img
+            src={profileUrl}
+            alt={person.name || "Cast member"}
+            className="person-photo"
+            loading="lazy"
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+
+              const fallback =
+                event.currentTarget.parentElement?.querySelector(
+                  ".person-fallback",
+                );
+
+              if (fallback) {
+                fallback.style.display = "flex";
+              }
+            }}
+          />
+        ) : null}
+
+        <div
+          className="person-fallback"
+          style={{
+            display: profileUrl ? "none" : "flex",
+          }}
+          aria-hidden="true"
+        >
+          {getInitials(person.name)}
+        </div>
+      </div>
+
+      <div className="person-name">{person.name || "Unknown"}</div>
+
+      <div className="person-role">{role}</div>
+    </div>
+  );
 }
 
 export default function CastList({ tmdbId }) {
   const [credits, setCredits] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const media = useMemo(() => parseMediaId(tmdbId), [tmdbId]);
 
@@ -47,38 +133,51 @@ export default function CastList({ tmdbId }) {
 
     async function loadCredits() {
       if (!media) {
-        setCredits(null);
         setLoading(false);
-        setError(true);
+        setCredits(null);
         return;
       }
 
       setLoading(true);
-      setError(false);
+      setFailed(false);
 
       try {
         const params = new URLSearchParams({
-          tmdb_id: `${media.mediaType === "tv" ? "tv-" : ""}${media.id}`,
+          tmdb_id: tmdbId,
         });
 
-        const response = await fetch(`/api/movie-credits?${params.toString()}`);
+        const response = await fetch(
+          `/api/movies/credits?${params.toString()}`,
+        );
 
         if (!response.ok) {
-          throw new Error("Failed to load credits.");
+          throw new Error(`Credits request failed with ${response.status}`);
         }
 
         const data = await response.json();
 
-        if (!cancelled) {
-          setCredits(data);
+        if (cancelled) {
+          return;
         }
-      } catch (err) {
-        console.error("[CastList] Failed to load credits:", err);
 
-        if (!cancelled) {
-          setError(true);
-          setCredits(null);
+        if (!data?.success) {
+          throw new Error(data?.error || "Credits request failed.");
         }
+
+        setCredits({
+          cast: Array.isArray(data.cast) ? data.cast : [],
+          crew: Array.isArray(data.crew) ? data.crew : [],
+          director: data.director || null,
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.warn("[CastList] Unable to load credits:", error);
+
+        setCredits(null);
+        setFailed(true);
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -91,23 +190,38 @@ export default function CastList({ tmdbId }) {
     return () => {
       cancelled = true;
     };
-  }, [media]);
+  }, [media, tmdbId]);
+
+  /*
+   * IMPORTANT:
+   *
+   * Never throw here.
+   *
+   * Cast/crew is optional content. If TMDB is unavailable,
+   * the rest of the movie page must continue working.
+   */
+
+  if (!media) {
+    return null;
+  }
 
   if (loading) {
     return (
-      <div className="credits-loading">
+      <div className="cast-loading">
         <div className="loading-row">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div className="loading-card" key={item}>
-              <div className="loading-avatar" />
-              <div className="loading-line" />
-              <div className="loading-line short" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div className="loading-card" key={index}>
+              <div className="loading-photo" />
+
+              <div className="loading-name" />
+
+              <div className="loading-role" />
             </div>
           ))}
         </div>
 
         <style jsx>{`
-          .credits-loading {
+          .cast-loading {
             width: 100%;
             overflow: hidden;
           }
@@ -115,33 +229,44 @@ export default function CastList({ tmdbId }) {
           .loading-row {
             display: flex;
             gap: 1rem;
-            overflow: hidden;
+            overflow-x: auto;
+            padding: 0.25rem 0 0.75rem;
+            scrollbar-width: none;
+          }
+
+          .loading-row::-webkit-scrollbar {
+            display: none;
           }
 
           .loading-card {
             flex: 0 0 92px;
           }
 
-          .loading-avatar {
-            width: 72px;
-            height: 72px;
-            margin-bottom: 0.65rem;
+          .loading-photo {
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 0.65rem;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.06);
             animation: pulse 1.4s ease-in-out infinite;
           }
 
-          .loading-line {
-            width: 80px;
+          .loading-name {
+            width: 70px;
             height: 8px;
+            margin: 0 auto 0.45rem;
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.06);
             animation: pulse 1.4s ease-in-out infinite;
           }
 
-          .loading-line.short {
-            width: 55px;
-            margin-top: 6px;
+          .loading-role {
+            width: 52px;
+            height: 6px;
+            margin: 0 auto;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            animation: pulse 1.4s ease-in-out infinite;
           }
 
           @keyframes pulse {
@@ -159,123 +284,160 @@ export default function CastList({ tmdbId }) {
     );
   }
 
-  if (
-    error ||
-    !credits ||
-    ((!credits.cast || credits.cast.length === 0) &&
-      (!credits.crew || credits.crew.length === 0))
-  ) {
+  /*
+   * If credits failed, DO NOT break the page.
+   *
+   * Just render a quiet fallback.
+   */
+  if (failed || !credits) {
     return (
-      <div className="empty-credits">
-        <div className="empty-icon">—</div>
-        <p>Cast and crew information is not available yet.</p>
+      <div className="empty-state">
+        <span>Cast and crew information is not available right now.</span>
 
         <style jsx>{`
-          .empty-credits {
+          .empty-state {
+            min-height: 72px;
             display: flex;
             align-items: center;
-            gap: 0.8rem;
-            min-height: 70px;
-            color: rgba(255, 255, 255, 0.45);
-          }
-
-          .empty-icon {
-            width: 34px;
-            height: 34px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 50%;
+            padding: 1rem 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.025);
             color: ${W.creamDim};
-          }
-
-          .empty-credits p {
-            margin: 0;
-            font-family: ${W.bodyFont};
-            font-size: 0.85rem;
+            font-family: ${W.monoFont};
+            font-size: 0.72rem;
           }
         `}</style>
       </div>
     );
   }
 
-  const cast = Array.isArray(credits.cast) ? credits.cast : [];
-  const crew = Array.isArray(credits.crew) ? credits.crew : [];
+  const cast = credits.cast || [];
+  const crew = credits.crew || [];
+
+  /*
+   * Remove duplicate crew people.
+   */
+  const uniqueCrew = [];
+  const crewSeen = new Set();
+
+  for (const person of crew) {
+    if (!person?.name) {
+      continue;
+    }
+
+    const key = `${person.name}-${person.job || person.department}`;
+
+    if (crewSeen.has(key)) {
+      continue;
+    }
+
+    crewSeen.add(key);
+    uniqueCrew.push(person);
+  }
+
+  /*
+   * Keep the most useful crew roles.
+   */
+  const preferredJobs = [
+    "Director",
+    "Series Director",
+    "Executive Producer",
+    "Producer",
+    "Writer",
+    "Screenplay",
+    "Director of Photography",
+    "Original Music Composer",
+    "Music",
+    "Editor",
+  ];
+
+  const sortedCrew = [...uniqueCrew]
+    .sort((a, b) => {
+      const aIndex = preferredJobs.indexOf(a.job);
+      const bIndex = preferredJobs.indexOf(b.job);
+
+      const normalizedA = aIndex === -1 ? 999 : aIndex;
+
+      const normalizedB = bIndex === -1 ? 999 : bIndex;
+
+      return normalizedA - normalizedB;
+    })
+    .slice(0, 8);
+
+  const hasCast = cast.length > 0;
+  const hasCrew = sortedCrew.length > 0;
+
+  /*
+   * Nothing available.
+   *
+   * Still return safely.
+   */
+  if (!hasCast && !hasCrew) {
+    return (
+      <div className="empty-state">
+        Cast and crew information is not available yet.
+        <style jsx>{`
+          .empty-state {
+            min-height: 72px;
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.025);
+            color: ${W.creamDim};
+            font-family: ${W.monoFont};
+            font-size: 0.72rem;
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="credits">
-      {cast.length > 0 && (
-        <section className="credit-group">
-          <div className="group-header">
-            <h3>Cast</h3>
-            <span>{cast.length}</span>
+      {/* =====================================================
+          CAST
+          ===================================================== */}
+
+      {hasCast && (
+        <div className="credit-group">
+          <div className="subheading">
+            <span>Cast</span>
           </div>
 
-          <div className="cast-list">
-            {cast.map((person) => (
-              <div className="cast-card" key={person.id || person.credit_id}>
-                <div className="person-image">
-                  {person.profile_path ? (
-                    <img
-                      src={person.profile_path}
-                      alt={person.name}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="person-placeholder">
-                      {initials(person.name)}
-                    </div>
-                  )}
-                </div>
-
-                <div className="person-name">{person.name}</div>
-
-                {person.character && (
-                  <div className="person-role">{person.character}</div>
-                )}
-              </div>
+          <div className="people-row">
+            {cast.map((person, index) => (
+              <PersonCard
+                key={person.id || `${person.name}-${index}`}
+                person={person}
+              />
             ))}
           </div>
-        </section>
+        </div>
       )}
 
-      {crew.length > 0 && (
-        <section className="credit-group crew-group">
-          <div className="group-header">
-            <h3>Crew</h3>
-            <span>{crew.length}</span>
+      {/* =====================================================
+          CREW
+          ===================================================== */}
+
+      {hasCrew && (
+        <div className="credit-group crew-group">
+          <div className="subheading">
+            <span>Crew</span>
           </div>
 
-          <div className="crew-grid">
-            {crew.map((person) => (
-              <div
-                className="crew-card"
-                key={`${person.id || person.credit_id}-${person.job || person.department}`}
-              >
-                <div className="crew-avatar">
-                  {person.profile_path ? (
-                    <img
-                      src={person.profile_path}
-                      alt={person.name}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="crew-placeholder">
-                      {initials(person.name)}
-                    </div>
-                  )}
-                </div>
-
-                <div className="crew-information">
-                  <div className="crew-name">{person.name}</div>
-
-                  {person.job && <div className="crew-role">{person.job}</div>}
-                </div>
-              </div>
+          <div className="people-row">
+            {sortedCrew.map((person, index) => (
+              <PersonCard
+                key={person.id || `${person.name}-${person.job}-${index}`}
+                person={person}
+                crew
+              />
             ))}
           </div>
-        </section>
+        </div>
       )}
 
       <style jsx>{`
@@ -283,181 +445,125 @@ export default function CastList({ tmdbId }) {
           width: 100%;
         }
 
-        .credit-group + .credit-group {
-          margin-top: 3rem;
+        .credit-group {
+          width: 100%;
         }
 
-        .group-header {
-          display: flex;
-          align-items: baseline;
-          gap: 0.65rem;
-          margin-bottom: 1.25rem;
+        .crew-group {
+          margin-top: 2.5rem;
+          padding-top: 2rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
 
-        .group-header h3 {
-          margin: 0;
+        .subheading {
+          margin-bottom: 1rem;
           color: ${W.cream};
-          font-family: ${W.displayFont};
-          font-size: 1.15rem;
-          font-weight: 600;
-          letter-spacing: -0.015em;
-        }
-
-        .group-header span {
-          color: ${W.creamDim};
           font-family: ${W.monoFont};
-          font-size: 0.65rem;
+          font-size: 0.68rem;
+          font-weight: 500;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
         }
 
-        .cast-list {
+        .people-row {
           display: flex;
           gap: 1rem;
           overflow-x: auto;
-          padding: 0.2rem 0 0.75rem;
+          padding: 0.25rem 0 0.8rem;
           scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+          scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
         }
 
-        .cast-card {
+        .people-row::-webkit-scrollbar {
+          height: 5px;
+        }
+
+        .people-row::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .people-row::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 999px;
+        }
+
+        .person-card {
           flex: 0 0 92px;
+          min-width: 92px;
           text-align: center;
         }
 
-        .person-image {
-          width: 72px;
-          height: 72px;
-          margin: 0 auto 0.7rem;
+        .person-photo-wrap {
+          position: relative;
+          width: 76px;
+          height: 76px;
+          margin: 0 auto 0.65rem;
           overflow: hidden;
           border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.1);
           background: ${W.surface};
+          border: 1px solid rgba(255, 255, 255, 0.09);
         }
 
-        .person-image img {
+        .person-photo {
           display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .person-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
+        .person-fallback {
+          position: absolute;
+          inset: 0;
           align-items: center;
           justify-content: center;
+          background: ${W.surface};
           color: ${W.creamDim};
           font-family: ${W.displayFont};
-          font-size: 1rem;
+          font-size: 1.1rem;
         }
 
         .person-name {
-          color: ${W.cream};
-          font-family: ${W.bodyFont};
-          font-size: 0.72rem;
-          font-weight: 500;
-          line-height: 1.25;
-        }
-
-        .person-role {
-          margin-top: 0.2rem;
-          color: ${W.creamDim};
-          font-family: ${W.monoFont};
-          font-size: 0.58rem;
-          line-height: 1.25;
-        }
-
-        .crew-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 0.7rem;
-          max-width: 850px;
-        }
-
-        .crew-card {
-          display: flex;
-          align-items: center;
-          gap: 0.8rem;
-          min-width: 0;
-          padding: 0.75rem;
-          border: 1px solid rgba(255, 255, 255, 0.07);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.025);
-        }
-
-        .crew-avatar {
-          flex: 0 0 40px;
-          width: 40px;
-          height: 40px;
-          overflow: hidden;
-          border-radius: 50%;
-          background: ${W.surface};
-        }
-
-        .crew-avatar img {
-          display: block;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .crew-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: ${W.creamDim};
-          font-family: ${W.monoFont};
-          font-size: 0.65rem;
-        }
-
-        .crew-information {
-          min-width: 0;
-        }
-
-        .crew-name {
           overflow: hidden;
           color: ${W.cream};
           font-family: ${W.bodyFont};
-          font-size: 0.76rem;
-          font-weight: 500;
+          font-size: 0.7rem;
+          line-height: 1.25;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        .crew-role {
+        .person-role {
           margin-top: 0.2rem;
           overflow: hidden;
           color: ${W.creamDim};
           font-family: ${W.monoFont};
           font-size: 0.59rem;
+          line-height: 1.25;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
 
-        @media (max-width: 800px) {
-          .crew-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        @media (max-width: 520px) {
-          .cast-list {
-            gap: 0.75rem;
+        @media (max-width: 700px) {
+          .people-row {
+            gap: 0.8rem;
           }
 
-          .cast-card {
-            flex-basis: 82px;
+          .person-card {
+            flex-basis: 84px;
+            min-width: 84px;
           }
 
-          .person-image {
-            width: 64px;
-            height: 64px;
+          .person-photo-wrap {
+            width: 68px;
+            height: 68px;
           }
 
-          .crew-grid {
-            grid-template-columns: 1fr;
+          .person-name {
+            font-size: 0.66rem;
+          }
+
+          .person-role {
+            font-size: 0.56rem;
           }
         }
       `}</style>
