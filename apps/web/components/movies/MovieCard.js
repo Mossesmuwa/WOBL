@@ -21,6 +21,9 @@ export default function MovieCard({ item, frame }) {
             <span className="frame-tag">{String(frame).padStart(3, "0")}</span>
           )}
           {item.type === "tv" && <span className="type-tag">Series</span>}
+
+          {/* Subtle atmospheric vignette gradient overlay on hover */}
+          <div className="poster-vignette" />
         </div>
 
         <div className="card-info">
@@ -49,35 +52,61 @@ export default function MovieCard({ item, frame }) {
           display: block;
           text-decoration: none;
           color: inherit;
-          transition: transform 0.15s ease;
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .card:hover {
-          transform: translateY(-3px);
+          transform: translateY(-5px);
         }
         .card:active {
-          /* Touch devices don't get :hover — this is the mobile-equivalent
-           * feedback so a tap still feels responsive. */
           transform: scale(0.97);
         }
         @media (min-width: 1440px) {
-          /* Desktop-only: slightly larger lift, since cursor-driven hover
-           * reads better with more travel than a touch tap would. */
           .card:hover {
-            transform: translateY(-5px) scale(1.015);
+            transform: translateY(-7px) scale(1.01);
           }
         }
         .poster-wrap {
           position: relative;
           aspect-ratio: 2 / 3;
-          border-radius: 6px;
+          border-radius: 8px;
           overflow: hidden;
-          background: var(--wobl-surface);
+          background: var(--wobl-surface, #141210);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+          transition:
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+        }
+        .card:hover .poster-wrap {
+          border-color: rgba(245, 158, 11, 0.3);
+          box-shadow:
+            0 20px 45px rgba(0, 0, 0, 0.7),
+            0 0 20px rgba(245, 158, 11, 0.1);
         }
         .poster-wrap img {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
+          transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .card:hover .poster-wrap img {
+          transform: scale(1.05);
+        }
+        .poster-vignette {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to top,
+            rgba(10, 9, 8, 0.4) 0%,
+            transparent 50%
+          );
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          pointer-events: none;
+        }
+        .card:hover .poster-vignette {
+          opacity: 1;
         }
         .poster-fallback {
           display: flex;
@@ -98,9 +127,13 @@ export default function MovieCard({ item, frame }) {
           font-size: 0.65rem;
           letter-spacing: 0.05em;
           color: var(--wobl-cream);
-          background: rgba(20, 17, 15, 0.7);
-          padding: 0.15rem 0.4rem;
-          border-radius: 3px;
+          background: rgba(20, 17, 15, 0.75);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          padding: 0.2rem 0.45rem;
+          border-radius: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          z-index: 1;
         }
         .type-tag {
           position: absolute;
@@ -109,9 +142,13 @@ export default function MovieCard({ item, frame }) {
           font-family: var(--wobl-mono);
           font-size: 0.65rem;
           color: var(--wobl-amber);
-          background: rgba(20, 17, 15, 0.7);
-          padding: 0.15rem 0.4rem;
-          border-radius: 3px;
+          background: rgba(20, 17, 15, 0.75);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          padding: 0.2rem 0.45rem;
+          border-radius: 4px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          z-index: 1;
         }
         .save-overlay {
           position: absolute;
@@ -120,29 +157,33 @@ export default function MovieCard({ item, frame }) {
           z-index: 2;
         }
         .card-info {
-          padding: 0.6rem 0.1rem 0;
+          padding: 0.75rem 0.15rem 0;
         }
         .card-title {
           font-family: var(--wobl-display);
-          font-size: 0.95rem;
+          font-size: 0.92rem;
           font-weight: 500;
           color: var(--wobl-cream);
           margin: 0 0 0.25rem;
-          line-height: 1.3;
+          line-height: 1.35;
           display: -webkit-box;
-          -webkit-line-clamp: 2;
+          -webkit-line-clamp: 1;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          transition: color 0.2s ease;
+        }
+        .card:hover .card-title {
+          color: var(--wobl-amber, #f59e0b);
         }
         .card-meta {
           display: flex;
           gap: 0.6rem;
           font-family: var(--wobl-mono);
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: var(--wobl-cream-dim);
         }
         .rating {
-          color: var(--wobl-marquee);
+          color: var(--wobl-marquee, #f59e0b);
         }
       `}</style>
     </div>
