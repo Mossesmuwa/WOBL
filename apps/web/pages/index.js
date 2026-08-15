@@ -1,17 +1,19 @@
 // pages/movies/index.js
 // Wobl — Curated Cinematic Discovery Hub
 
+// pages/index.js (or pages/movies/index.js depending on your exact file location)
+
 import { useState, useCallback, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { getTrending, getByCategory } from "shared/lib/items";
 import { getAllGenres, getByGenre } from "shared/lib/movies";
-import Navbar from "../../components/shared/Navbar";
-import Footer from "../../components/shared/Footer";
-import MovieCard from "../../components/movies/MovieCard";
-import MovieCardSkeleton from "../../components/movies/MovieCardSkeleton";
-import GenreFilter from "../../components/movies/GenreFilter";
-import { W } from "../../components/shared/wobl-theme";
+import Navbar from "components/shared/Navbar";
+import Footer from "components/shared/Footer";
+import MovieCard from "components/movies/MovieCard";
+import MovieCardSkeleton from "components/movies/MovieCardSkeleton";
+import GenreFilter from "components/movies/GenreFilter";
+import { W } from "components/shared/wobl-theme";
 
 const PAGE_SIZE = 18;
 
