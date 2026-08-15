@@ -1,170 +1,130 @@
 // pages/movies/index.js
 // Wobl — Curated Cinematic Discovery Hub
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { getTrending, getByCategory } from "shared/lib/items";
-import { getAllGenres, getByGenre } from "shared/lib/movies";
+import { getAllGenres } from "shared/lib/movies";
 import Navbar from "components/shared/Navbar";
 import Footer from "components/shared/Footer";
 import MovieCard from "components/movies/MovieCard";
-import MovieCardSkeleton from "components/movies/MovieCardSkeleton";
-import GenreFilter from "components/movies/GenreFilter";
-import { W } from "components/shared/wobl-theme";
-
-const PAGE_SIZE = 18;
-
-const SORTS = [
-  { key: "trending", label: "Trending Now" },
-  { key: "newest", label: "New Releases" },
-  { key: "rating", label: "Critically Acclaimed" },
-  { key: "popularity", label: "Most Viewed" },
-];
 
 export async function getStaticProps() {
-  const [hero, curatedRows, initial, genres] = await Promise.all([
-    getTrending(1, "movies"),
-    getByCategory("movies", { limit: 8, sortBy: "rating" }),
-    getByCategory("movies", { limit: PAGE_SIZE, sortBy: "trending" }),
-    getAllGenres(),
-  ]);
+  const [heroCarousel, trendingMovies, seriesRows, topRatedRows, genres] =
+    await Promise.all([
+      getTrending(9, "movies"),
+      getByCategory("movies", { limit: 12, sortBy: "trending" }),
+      getByCategory("tv", { limit: 12, sortBy: "trending" }),
+      getByCategory("movies", { limit: 12, sortBy: "rating" }),
+      getAllGenres(),
+    ]);
 
   return {
     props: {
-      hero: hero[0] || null,
-      curatedRows: curatedRows || [],
-      initialItems: initial,
-      genres,
+      heroCarousel: heroCarousel || [],
+      trendingMovies: trendingMovies || [],
+      seriesRows: seriesRows || [],
+      topRatedRows: topRatedRows || [],
+      genres: genres || [],
     },
     revalidate: 3600,
   };
 }
 
-export default function MoviesHome({
-  hero,
-  curatedRows,
-  initialItems,
+export default function MoviesIndex({
+  heroCarousel,
+  trendingMovies,
+  seriesRows,
+  topRatedRows,
   genres,
 }) {
-  const [sort, setSort] = useState("trending");
-  const [activeGenre, setActiveGenre] = useState(null);
-  const [items, setItems] = useState(initialItems);
-  const [offset, setOffset] = useState(initialItems.length);
-  const [hasMore, setHasMore] = useState(initialItems.length === PAGE_SIZE);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const timeoutRef = useRef(null);
 
-  const sentinelRef = useRef(null);
-  const activeGenreRef = useRef(null);
-  activeGenreRef.current = activeGenre;
+  const totalHero = heroCarousel.length;
 
-  // Handle Sort changes with instant feedback
-  const handleSortChange = useCallback(async (newSort) => {
-    setSort(newSort);
-    setLoadingMore(true);
-    const data = activeGenreRef.current
-      ? await getByGenre(activeGenreRef.current, { limit: PAGE_SIZE })
-      : await getByCategory("movies", { limit: PAGE_SIZE, sortBy: newSort });
-    setItems(data);
-    setOffset(data.length);
-    setHasMore(data.length === PAGE_SIZE);
-    setLoadingMore(false);
-  }, []);
-
-  // Handle Genre selection
-  const handleGenreChange = useCallback(
-    async (genre) => {
-      setActiveGenre(genre);
-      setLoadingMore(true);
-      const data = genre
-        ? await getByGenre(genre, { limit: PAGE_SIZE })
-        : await getByCategory("movies", { limit: PAGE_SIZE, sortBy: sort });
-      setItems(data);
-      setOffset(data.length);
-      setHasMore(data.length === PAGE_SIZE);
-      setLoadingMore(false);
-    },
-    [sort],
-  );
-
-  // Infinite scroll load more handler
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    const more = await getByCategory("movies", {
-      limit: PAGE_SIZE,
-      offset,
-      sortBy: sort,
-    });
-    setItems((prev) => [...prev, ...more]);
-    setOffset((prev) => prev + more.length);
-    setHasMore(more.length === PAGE_SIZE);
-    setLoadingMore(false);
-  }, [loadingMore, hasMore, offset, sort]);
+  // Auto-advance hero carousel every 7 seconds unless paused
+  const nextSlide = useCallback(() => {
+    if (totalHero === 0) return;
+    setActiveIndex((prev) => (prev + 1) % totalHero);
+  }, [totalHero]);
 
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { rootMargin: "400px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [loadMore]);
+    if (isPaused || totalHero <= 1) return;
+    timeoutRef.current = setTimeout(nextSlide, 7000);
+    return () => clearTimeout(timeoutRef.current);
+  }, [activeIndex, isPaused, nextSlide, totalHero]);
 
-  const backdrop = hero?.backdrop_path || hero?.image || "";
+  const currentHero = heroCarousel[activeIndex] || heroCarousel[0] || null;
+  const backdrop = currentHero?.backdrop_path || currentHero?.image || "";
 
   return (
     <>
       <Head>
-        <title>Curated Cinema & Series — Wobl</title>
+        <title>Cinematic Index & Series — Wura</title>
         <meta
           name="description"
-          content="Real ratings, pristine aesthetics, zero algorithmic noise."
+          content="Immersive cinema, premium series, and curated editorial rails."
         />
       </Head>
 
       <Navbar />
 
-      <main className="movies-destination">
-        {/* --- 1. IMMERSIVE CINEMATIC HERO SPOTLIGHT --- */}
-        {hero && (
-          <section className="hero-stage">
+      <main className="movies-index">
+        {/* --- 1. AUTOSWIPING CINEMATIC HERO MARQUEE (TOP 9) --- */}
+        {heroCarousel.length > 0 && (
+          <section
+            className="hero-marquee"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+          >
             <div
-              className="hero-backdrop"
+              key={currentHero.id}
+              className="hero-backdrop fade-in"
               style={{ backgroundImage: `url(${backdrop})` }}
             />
             <div className="hero-vignette" />
 
             <div className="hero-content">
-              <div className="hero-tag">World Premiere Feature</div>
-              <h1 className="hero-title">{hero.name}</h1>
-
-              <div className="hero-meta">
-                {hero.rating != null && (
-                  <span className="hero-rating">
-                    ★ {Number(hero.rating).toFixed(1)}
+              <div className="hero-top-meta">
+                <span className="hero-rank-tag">
+                  FEATURED {String(activeIndex + 1).padStart(2, "0")} /{" "}
+                  {String(totalHero).padStart(2, "0")}
+                </span>
+                {currentHero.rating != null && (
+                  <span className="hero-rating-pill">
+                    ★ {Number(currentHero.rating).toFixed(1)}
                   </span>
-                )}
-                {hero.year && <span className="meta-dot">{hero.year}</span>}
-                {hero.runtime && (
-                  <span className="meta-dot">{hero.runtime} min</span>
                 )}
               </div>
 
-              {hero.short_desc && (
-                <p className="hero-desc">{hero.short_desc}</p>
+              <h1 className="hero-title">{currentHero.name}</h1>
+
+              <div className="hero-specs">
+                {currentHero.year && <span>{currentHero.year}</span>}
+                {currentHero.runtime && (
+                  <span className="spec-dot">{currentHero.runtime} min</span>
+                )}
+                {currentHero.genre && (
+                  <span className="spec-dot">{currentHero.genre}</span>
+                )}
+              </div>
+
+              {currentHero.short_desc && (
+                <p className="hero-desc">{currentHero.short_desc}</p>
               )}
 
-              <div className="hero-actions">
-                <Link href={`/movies/${hero.slug}`} className="btn-primary">
-                  <span>Stream Trailer & Files</span>
+              <div className="hero-cta-group">
+                <Link
+                  href={`/movies/${currentHero.slug}`}
+                  className="btn-stream"
+                >
+                  <span>Stream Feature</span>
                   <svg
-                    width="16"
-                    height="16"
+                    width="14"
+                    height="14"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -175,23 +135,53 @@ export default function MoviesHome({
                 </Link>
               </div>
             </div>
+
+            {/* Carousel Pagination Ticks / Indicators */}
+            <div className="hero-indicators">
+              {heroCarousel.map((item, idx) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveIndex(idx)}
+                  className={`indicator-tick ${activeIndex === idx ? "active" : ""}`}
+                  aria-label={`Slide ${idx + 1}: ${item.name}`}
+                >
+                  <span className="tick-fill" />
+                </button>
+              ))}
+            </div>
           </section>
         )}
 
-        {/* --- 2. EDITORIAL CURATED RAIL --- */}
-        {curatedRows.length > 0 && (
-          <section className="curated-rail-section">
+        {/* --- 2. TRENDING NOW RAIL --- */}
+        {trendingMovies.length > 0 && (
+          <section className="editorial-rail">
             <div className="rail-container">
               <div className="rail-header">
                 <div>
-                  <span className="eyebrow-accent">Editor’s Choice</span>
-                  <h2 className="section-heading">Masterclass Tier</h2>
+                  <span className="rail-eyebrow">Velocity Feed</span>
+                  <h2 className="rail-heading">Trending Now</h2>
                 </div>
-                <span className="rail-hint">Scroll for selection</span>
+                <Link
+                  href="/movies/explore?sort=trending"
+                  className="rail-more-link"
+                >
+                  <span>Explore All</span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
-              <div className="rail-grid">
-                {curatedRows.slice(0, 5).map((item, i) => (
-                  <div key={item.id} className="rail-item-wrapper">
+
+              <div className="rail-scroller">
+                {trendingMovies.map((item, i) => (
+                  <div key={item.id} className="rail-card-slot">
                     <MovieCard item={item} frame={i + 1} />
                   </div>
                 ))}
@@ -200,87 +190,99 @@ export default function MoviesHome({
           </section>
         )}
 
-        {/* --- 3. STICKY DISCOVERY & FILTER DOCK --- */}
-        <section id="library" className="library-section">
-          <div className="library-container">
-            <div className="control-dock">
-              <div className="dock-title-group">
-                <span className="eyebrow-accent">Global Index</span>
-                <h2 className="section-heading">The Archive</h2>
-              </div>
-
-              {/* Direct Action Sort Tabs */}
-              <div className="sort-pill-group">
-                {SORTS.map((s) => (
-                  <button
-                    key={s.key}
-                    onClick={() => handleSortChange(s.key)}
-                    className={`sort-tab ${sort === s.key ? "active" : ""}`}
+        {/* --- 3. MASTERCLASS SERIES RAIL --- */}
+        {seriesRows.length > 0 && (
+          <section className="editorial-rail">
+            <div className="rail-container">
+              <div className="rail-header">
+                <div>
+                  <span className="rail-eyebrow">Episodic Library</span>
+                  <h2 className="rail-heading">Masterclass Series</h2>
+                </div>
+                <Link href="/movies/explore?type=tv" className="rail-more-link">
+                  <span>Explore All</span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
                   >
-                    {s.label}
-                  </button>
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+
+              <div className="rail-scroller">
+                {seriesRows.map((item, i) => (
+                  <div key={item.id} className="rail-card-slot">
+                    <MovieCard item={item} frame={i + 1} />
+                  </div>
                 ))}
               </div>
             </div>
+          </section>
+        )}
 
-            {/* Genre Filter Pills Bar */}
-            <div className="genre-dock">
-              <GenreFilter
-                genres={genres}
-                active={activeGenre}
-                onChange={handleGenreChange}
-              />
-            </div>
-
-            {/* Main Interactive Grid */}
-            {items.length === 0 ? (
-              <div className="empty-catalog">
-                <p>No cinematic matches detected in this parameter sequence.</p>
+        {/* --- 4. CRITICALLY ACCLAIMED RAIL --- */}
+        {topRatedRows.length > 0 && (
+          <section className="editorial-rail" style={{ marginBottom: "5rem" }}>
+            <div className="rail-container">
+              <div className="rail-header">
+                <div>
+                  <span className="rail-eyebrow">Archival Excellence</span>
+                  <h2 className="rail-heading">Critically Acclaimed</h2>
+                </div>
+                <Link
+                  href="/movies/explore?sort=rating"
+                  className="rail-more-link"
+                >
+                  <span>Explore All</span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
-            ) : (
-              <div className="catalog-grid">
-                {items.map((item, i) => (
-                  <MovieCard key={item.id} item={item} frame={i + 1} />
+
+              <div className="rail-scroller">
+                {topRatedRows.map((item, i) => (
+                  <div key={item.id} className="rail-card-slot">
+                    <MovieCard item={item} frame={i + 1} />
+                  </div>
                 ))}
               </div>
-            )}
-
-            <div ref={sentinelRef} style={{ height: 20 }} />
-
-            {loadingMore && (
-              <div className="catalog-grid" style={{ marginTop: "1.5rem" }}>
-                <MovieCardSkeleton count={6} />
-              </div>
-            )}
-
-            {!hasMore && items.length > 0 && (
-              <div className="archive-end">
-                <span>End of sequence. All records indexed.</span>
-              </div>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />
 
       <style jsx>{`
-        .movies-destination {
+        .movies-index {
           background: var(--wobl-bg, #0a0908);
           min-height: 100vh;
           color: #fff;
         }
 
-        /* Hero Stage */
-        .hero-stage {
+        /* Hero Marquee Stage */
+        .hero-marquee {
           position: relative;
           width: 100%;
           height: 75vh;
-          max-height: 640px;
-          min-height: 480px;
+          max-height: 680px;
+          min-height: 500px;
           display: flex;
           align-items: flex-end;
-          padding: 4rem 3rem;
+          padding: 4rem 3.5rem 3rem;
           overflow: hidden;
         }
 
@@ -288,9 +290,23 @@ export default function MoviesHome({
           position: absolute;
           inset: 0;
           background-size: cover;
-          background-position: center 20%;
+          background-position: center 25%;
           z-index: 0;
-          filter: saturate(1.1);
+        }
+
+        .fade-in {
+          animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes heroFadeIn {
+          from {
+            opacity: 0.4;
+            transform: scale(1.02);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
 
         .hero-vignette {
@@ -298,8 +314,8 @@ export default function MoviesHome({
           inset: 0;
           background: linear-gradient(
             180deg,
-            rgba(10, 9, 8, 0.15) 0%,
-            rgba(10, 9, 8, 0.6) 55%,
+            rgba(10, 9, 8, 0.1) 0%,
+            rgba(10, 9, 8, 0.65) 50%,
             var(--wobl-bg, #0a0908) 100%
           );
           z-index: 1;
@@ -308,13 +324,19 @@ export default function MoviesHome({
         .hero-content {
           position: relative;
           z-index: 2;
-          max-width: 1200px;
+          max-width: 900px;
           width: 100%;
-          margin: 0 auto;
+          margin: 0 auto 1.5rem;
         }
 
-        .hero-tag {
-          display: inline-block;
+        .hero-top-meta {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+
+        .hero-rank-tag {
           font-family: var(--wobl-mono, monospace);
           font-size: 0.7rem;
           letter-spacing: 0.15em;
@@ -324,42 +346,49 @@ export default function MoviesHome({
           border: 1px solid rgba(245, 158, 11, 0.3);
           padding: 0.3rem 0.85rem;
           border-radius: 20px;
-          margin-bottom: 1rem;
+        }
+
+        .hero-rating-pill {
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.75rem;
+          color: var(--wobl-amber, #f59e0b);
+          background: rgba(10, 9, 8, 0.7);
+          backdrop-filter: blur(8px);
+          padding: 0.3rem 0.75rem;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          font-weight: 600;
         }
 
         .hero-title {
           font-family: var(--wobl-display, sans-serif);
-          font-size: clamp(2.5rem, 4.5vw, 4rem);
+          font-size: clamp(2.5rem, 5vw, 4.2rem);
           line-height: 1.05;
           letter-spacing: -0.02em;
           color: #fff;
           margin: 0 0 0.75rem;
+          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
 
-        .hero-meta {
+        .hero-specs {
           display: flex;
           align-items: center;
-          gap: 0.85rem;
+          gap: 0.75rem;
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.85rem;
+          font-size: 0.82rem;
           color: rgba(255, 255, 255, 0.75);
           margin-bottom: 1rem;
         }
 
-        .hero-rating {
-          color: var(--wobl-amber, #f59e0b);
-          font-weight: 600;
-        }
-
-        .meta-dot::before {
+        .spec-dot::before {
           content: "·";
-          margin-right: 0.85rem;
+          margin-right: 0.75rem;
         }
 
         .hero-desc {
           font-size: 1.05rem;
           line-height: 1.65;
-          color: rgba(255, 255, 255, 0.8);
+          color: rgba(255, 255, 255, 0.85);
           max-width: 620px;
           margin-bottom: 1.75rem;
           display: -webkit-box;
@@ -368,12 +397,12 @@ export default function MoviesHome({
           overflow: hidden;
         }
 
-        .btn-primary {
+        .btn-stream {
           display: inline-flex;
           align-items: center;
           gap: 0.75rem;
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           font-weight: 600;
@@ -382,21 +411,64 @@ export default function MoviesHome({
           padding: 0.85rem 2rem;
           border-radius: 40px;
           text-decoration: none;
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .btn-primary:hover {
+        .btn-stream:hover {
           transform: translateY(-2px);
           background: #fbbf24;
-          box-shadow: 0 16px 35px rgba(245, 158, 11, 0.25);
+          box-shadow: 0 14px 35px rgba(245, 158, 11, 0.25);
         }
 
-        /* Editorial Curated Rail */
-        .curated-rail-section {
-          max-width: 1320px;
+        /* Hero Ticks Pagination */
+        .hero-indicators {
+          position: absolute;
+          bottom: 2rem;
+          right: 3.5rem;
+          display: flex;
+          gap: 0.4rem;
+          z-index: 3;
+        }
+
+        .indicator-tick {
+          background: rgba(255, 255, 255, 0.2);
+          border: none;
+          width: 28px;
+          height: 4px;
+          border-radius: 2px;
+          cursor: pointer;
+          padding: 0;
+          overflow: hidden;
+          transition: background 0.3s ease;
+        }
+
+        .indicator-tick.active {
+          background: rgba(255, 255, 255, 0.4);
+        }
+
+        .indicator-tick.active .tick-fill {
+          display: block;
+          height: 100%;
+          background: var(--wobl-amber, #f59e0b);
+          width: 100%;
+          animation: fillTick 7s linear forwards;
+        }
+
+        @keyframes fillTick {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+
+        /* Editorial Rails */
+        .editorial-rail {
+          max-width: 1440px;
           margin: 0 auto;
-          padding: 3rem 2.5rem 1rem;
+          padding: 3.5rem 3rem 1.5rem;
         }
 
         .rail-container {
@@ -410,136 +482,103 @@ export default function MoviesHome({
           justify-content: space-between;
           align-items: flex-end;
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          padding-bottom: 0.75rem;
+          padding-bottom: 0.85rem;
         }
 
-        .eyebrow-accent {
+        .rail-eyebrow {
           display: block;
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           letter-spacing: 0.15em;
           text-transform: uppercase;
           color: var(--wobl-amber, #f59e0b);
           margin-bottom: 0.25rem;
         }
 
-        .section-heading {
+        .rail-heading {
           font-family: var(--wobl-display, sans-serif);
-          font-size: 1.75rem;
+          font-size: 1.85rem;
           margin: 0;
           color: #fff;
           letter-spacing: -0.01em;
         }
 
-        .rail-hint {
-          font-family: var(--wobl-mono, monospace);
-          font-size: 0.72rem;
-          color: rgba(255, 255, 255, 0.35);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .rail-grid {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          gap: 1.5rem;
-        }
-
-        /* Library Control Dock & Grid */
-        .library-section {
-          max-width: 1320px;
-          margin: 0 auto;
-          padding: 3rem 2.5rem 6rem;
-        }
-
-        .library-container {
-          display: flex;
-          flex-direction: column;
-          gap: 2rem;
-        }
-
-        .control-dock {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          flex-wrap: wrap;
-          gap: 1.5rem;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          padding-bottom: 1.25rem;
-        }
-
-        .sort-pill-group {
-          display: flex;
+        .rail-more-link {
+          display: inline-flex;
+          align-items: center;
           gap: 0.5rem;
-          flex-wrap: wrap;
-        }
-
-        .sort-tab {
           font-family: var(--wobl-mono, monospace);
           font-size: 0.75rem;
-          letter-spacing: 0.06em;
-          padding: 0.55rem 1.25rem;
-          border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.02);
-          color: rgba(255, 255, 255, 0.6);
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .sort-tab:hover {
-          background: rgba(255, 255, 255, 0.06);
-          color: #fff;
-          border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .sort-tab.active {
-          background: rgba(245, 158, 11, 0.12);
-          border-color: var(--wobl-amber, #f59e0b);
-          color: var(--wobl-amber, #f59e0b);
-          font-weight: 600;
-        }
-
-        .genre-dock {
-          padding-bottom: 0.5rem;
-        }
-
-        .catalog-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 1.75rem;
-        }
-
-        .empty-catalog,
-        .archive-end {
-          text-align: center;
-          padding: 4rem 1rem;
-          font-family: var(--wobl-mono, monospace);
-          font-size: 0.8rem;
           letter-spacing: 0.08em;
-          color: rgba(255, 255, 255, 0.35);
           text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.6);
+          text-decoration: none;
+          transition: color 0.2s ease;
+          padding-bottom: 0.2rem;
+        }
+
+        .rail-more-link:hover {
+          color: var(--wobl-amber, #f59e0b);
+        }
+
+        /* Horizontal Scrolling Rail */
+        .rail-scroller {
+          display: grid;
+          grid-template-columns: repeat(6, minmax(190px, 1fr));
+          gap: 1.5rem;
+          overflow-x: auto;
+          padding-bottom: 0.5rem;
+          scrollbar-width: none; /* Firefox */
+        }
+
+        .rail-scroller::-webkit-scrollbar {
+          display: none; /* Safari & Chrome */
+        }
+
+        .rail-card-slot {
+          min-width: 190px;
+        }
+
+        @media (max-width: 1280px) {
+          .rail-scroller {
+            grid-template-columns: repeat(5, minmax(170px, 1fr));
+          }
         }
 
         @media (max-width: 1024px) {
-          .rail-grid {
-            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+          .hero-marquee {
+            padding: 3rem 2rem;
+          }
+          .hero-indicators {
+            right: 2rem;
+          }
+          .editorial-rail {
+            padding-left: 2rem;
+            padding-right: 2rem;
+          }
+          .rail-scroller {
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
           }
         }
 
         @media (max-width: 768px) {
-          .hero-stage {
-            padding: 3rem 1.5rem;
-            height: 65vh;
+          .hero-marquee {
+            height: 60vh;
+            padding: 2rem 1.5rem;
           }
-          .curated-rail-section,
-          .library-section {
+          .hero-indicators {
+            display: none;
+          }
+          .editorial-rail {
             padding-left: 1.5rem;
             padding-right: 1.5rem;
           }
-          .control-dock {
-            flex-direction: column;
-            align-items: flex-start;
+          .rail-scroller {
+            grid-template-columns: repeat(3, minmax(140px, 1fr));
+            gap: 1rem;
+          }
+          .rail-card-slot {
+            min-width: 140px;
           }
         }
       `}</style>
