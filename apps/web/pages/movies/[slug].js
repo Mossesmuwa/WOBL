@@ -1,29 +1,22 @@
-// pages/movies/[slug].js
-// Wobl — Movie/TV detail page. Magazine-style: ambient backdrop with a
-// glass info panel (title, rating, genre, save/share, trailer trigger)
-// composed as one unit — not stacked separate blocks. Trailer opens from
-// within the panel rather than sitting as a detached top element.
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { getBySlug, getRelated } from "shared/lib/items";
 import Navbar from "../../components/shared/Navbar";
 import Footer from "../../components/shared/Footer";
 import MovieCard from "../../components/movies/MovieCard";
-import MovieCardSkeleton from "../../components/movies/MovieCardSkeleton";
 import TrailerPlayer from "../../components/movies/TrailerPlayer";
 import CastList from "../../components/movies/CastList";
 import MovieSEO from "../../components/movies/MovieSEO";
 import SaveButton from "../../components/movies/SaveButton";
 import ShareButton from "../../components/movies/ShareButton";
-import { W, glassPanel } from "../../components/shared/wobl-theme";
+import { W } from "../../components/shared/wobl-theme";
 
 export async function getStaticPaths() {
   return { paths: [], fallback: "blocking" };
 }
 
 export async function getStaticProps({ params }) {
-  const item = await getBySlug(params.slug);
+  const item = await getBySlug(params?.slug);
   if (!item) return { notFound: true };
   const related = await getRelated(item, 6);
   return { props: { item, related }, revalidate: 3600 };
@@ -31,7 +24,7 @@ export async function getStaticProps({ params }) {
 
 export default function MovieDetailPage({ item, related }) {
   const router = useRouter();
-  const [trailerOpen, setTrailerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("trailer"); // 'trailer' | 'backdrop'
 
   useEffect(() => {
     if (!item) return;
@@ -42,9 +35,6 @@ export default function MovieDetailPage({ item, related }) {
     }).catch(() => {});
   }, [item?.slug]);
 
-  // Blocking-fallback pages render nothing until ready — a real gap on
-  // slower connections. This gives an actual loading state instead of a
-  // blank screen while Next resolves the page.
   if (router.isFallback || !item) {
     return (
       <>
@@ -52,26 +42,15 @@ export default function MovieDetailPage({ item, related }) {
         <main
           style={{ background: W.bg, minHeight: "100vh", padding: "3rem 2rem" }}
         >
-          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
             <div
               style={{
-                aspectRatio: "21/9",
+                aspectRatio: "16/9",
                 borderRadius: W.radius,
                 background: W.surface,
                 animation: "woblDetailPulse 1.4s ease-in-out infinite",
               }}
             />
-            <style jsx>{`
-              @keyframes woblDetailPulse {
-                0%,
-                100% {
-                  opacity: 0.5;
-                }
-                50% {
-                  opacity: 0.9;
-                }
-              }
-            `}</style>
           </div>
         </main>
         <Footer />
@@ -84,6 +63,7 @@ export default function MovieDetailPage({ item, related }) {
     .map((g) => g.trim())
     .filter(Boolean);
   const backdrop = item.backdrop_path || item.image;
+  const poster = item.poster_path || item.image;
 
   return (
     <>
@@ -91,86 +71,99 @@ export default function MovieDetailPage({ item, related }) {
       <Navbar />
 
       <main style={{ background: W.bg, minHeight: "100vh" }}>
-        <section className="ambient-hero">
-          {backdrop && (
-            <div
-              className="backdrop"
-              style={{ backgroundImage: `url(${backdrop})` }}
-            />
-          )}
-          <div className="scrim" />
-
-          <div className="info-panel">
-            <div className="panel-top">
-              {item.type === "tv" && <span className="eyebrow">Series</span>}
-              <div className="actions">
-                <SaveButton item={item} />
-                <ShareButton item={item} />
+        {/* Top Hero Section */}
+        <section className="hero-container">
+          {/* Media Player / Ambient Backdrop */}
+          <div className="hero-media">
+            {activeTab === "trailer" && (item.trailer_url || item.source_id) ? (
+              <div className="player-frame">
+                <TrailerPlayer
+                  tmdbId={item.source_id}
+                  slug={item.slug}
+                  itemName={item.name}
+                  trailers={item.trailer_url ? [item.trailer_url] : []}
+                  backdropUrl={backdrop}
+                />
               </div>
+            ) : (
+              <div
+                className="backdrop-image"
+                style={{ backgroundImage: `url(${backdrop})` }}
+              />
+            )}
+            <div className="scrim" />
+          </div>
+
+          {/* Floating Details + Poster Split */}
+          <div className="hero-content">
+            <div className="poster-wrapper">
+              <img src={poster} alt={item.name} className="poster-img" />
             </div>
 
-            <h1 className="title">{item.name}</h1>
+            <div className="info-card">
+              <div className="card-header">
+                {item.type === "tv" && <span className="eyebrow">Series</span>}
+                <div className="actions">
+                  <SaveButton item={item} />
+                  <ShareButton item={item} />
+                </div>
+              </div>
 
-            <div className="meta-row">
-              {item.rating != null && (
-                <span className="rating">★ {item.rating}</span>
-              )}
-              {item.year && <span className="dot-sep">{item.year}</span>}
-              {item.rating_count > 0 && (
-                <span className="dot-sep">
-                  {item.rating_count.toLocaleString()} votes
-                </span>
-              )}
-            </div>
+              <h1 className="title">{item.name}</h1>
 
-            {genres.length > 0 && (
-              <div className="genre-pills">
-                {genres.map((g) => (
-                  <span key={g} className="genre-pill">
-                    {g}
+              <div className="meta-row">
+                {item.rating != null && (
+                  <span className="rating">★ {item.rating}</span>
+                )}
+                {item.year && <span className="dot-sep">{item.year}</span>}
+                {item.rating_count > 0 && (
+                  <span className="dot-sep">
+                    {item.rating_count.toLocaleString()} votes
                   </span>
-                ))}
+                )}
               </div>
-            )}
 
-            {item.director && (
-              <a
-                href={`/movies/director/${item.director.toLowerCase().replace(/\s+/g, "-")}`}
-                className="director-link"
-              >
-                Directed by {item.director}
-              </a>
-            )}
+              {genres.length > 0 && (
+                <div className="genre-pills">
+                  {genres.map((g) => (
+                    <span key={g} className="genre-pill">
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
 
-            {item.short_desc && <p className="desc">{item.short_desc}</p>}
+              {item.short_desc && <p className="desc">{item.short_desc}</p>}
 
-            <button
-              className="trailer-trigger"
-              onClick={() => setTrailerOpen(true)}
-            >
-              <span className="play-dot" />
-              Watch trailer
-            </button>
+              {/* View Toggle */}
+              <div className="media-tabs">
+                <button
+                  className={`tab-btn ${activeTab === "trailer" ? "active" : ""}`}
+                  onClick={() => setActiveTab("trailer")}
+                >
+                  Trailer
+                </button>
+                <button
+                  className={`tab-btn ${activeTab === "backdrop" ? "active" : ""}`}
+                  onClick={() => setActiveTab("backdrop")}
+                >
+                  Backdrop View
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
+        {/* Content Body */}
         <div className="content-body">
           {item.long_desc && item.long_desc !== item.short_desc && (
-            <p className="long-desc">{item.long_desc}</p>
+            <div className="section-block">
+              <span className="section-eyebrow">Overview</span>
+              <p className="long-desc">{item.long_desc}</p>
+            </div>
           )}
 
           <CastList cast={item.metadata?.cast} />
-
-          {item.source_url && (
-            <a
-              href={item.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="source-link"
-            >
-              View on TMDB →
-            </a>
-          )}
 
           {related && related.length > 0 && (
             <section className="related">
@@ -185,62 +178,77 @@ export default function MovieDetailPage({ item, related }) {
         </div>
       </main>
 
-      {trailerOpen && (
-        <div className="trailer-overlay" onClick={() => setTrailerOpen(false)}>
-          <div className="trailer-wrap" onClick={(e) => e.stopPropagation()}>
-            <TrailerPlayer
-              tmdbId={item.source_id}
-              slug={item.slug}
-              itemName={item.name}
-              trailers={item.trailer_url ? [item.trailer_url] : []}
-              backdropUrl={backdrop}
-            />
-          </div>
-        </div>
-      )}
-
       <Footer />
 
       <style jsx>{`
-        .ambient-hero {
+        .hero-container {
           position: relative;
-          min-height: 62vh;
+          min-height: 80vh;
           display: flex;
-          align-items: flex-end;
-          overflow: hidden;
+          flex-direction: column;
+          justify-content: flex-end;
         }
-        .backdrop {
+        .hero-media {
           position: absolute;
           inset: 0;
+          z-index: 0;
+        }
+        .player-frame {
+          width: 100%;
+          height: 100%;
+          background: #000;
+        }
+        .backdrop-image {
+          width: 100%;
+          height: 100%;
           background-size: cover;
           background-position: center 20%;
-          filter: saturate(0.9);
         }
         .scrim {
           position: absolute;
           inset: 0;
           background: linear-gradient(
             to top,
-            var(--wobl-bg) 8%,
-            rgba(10, 9, 8, 0.55) 50%,
-            rgba(10, 9, 8, 0.15) 100%
+            var(--wobl-bg) 5%,
+            rgba(10, 9, 8, 0.75) 60%,
+            rgba(10, 9, 8, 0.4) 100%
           );
         }
-        .info-panel {
+        .hero-content {
           position: relative;
           z-index: 1;
-          max-width: 680px;
-          margin: 0 2rem 2.5rem;
-          padding: 1.75rem;
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 2rem;
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          gap: 2.5rem;
+          align-items: flex-end;
+        }
+        .poster-wrapper {
+          width: 100%;
+          aspect-ratio: 2 / 3;
           border-radius: var(--wobl-radius, 14px);
+          overflow: hidden;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .poster-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .info-card {
           background: rgba(255, 255, 255, 0.05);
           backdrop-filter: blur(24px) saturate(1.4);
           border: 0.5px solid rgba(255, 255, 255, 0.12);
+          border-radius: var(--wobl-radius, 14px);
+          padding: 2rem;
         }
-        .panel-top {
+        .card-header {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
+          align-items: center;
         }
         .eyebrow {
           font-family: var(--wobl-mono);
@@ -255,10 +263,10 @@ export default function MovieDetailPage({ item, related }) {
         }
         .title {
           font-family: var(--wobl-display);
-          font-size: clamp(1.8rem, 4vw, 2.5rem);
+          font-size: clamp(2rem, 4vw, 3rem);
           color: var(--wobl-cream);
-          margin: 0.4rem 0 0.6rem;
-          line-height: 1.08;
+          margin: 0.5rem 0;
+          line-height: 1.1;
         }
         .meta-row {
           display: flex;
@@ -267,7 +275,7 @@ export default function MovieDetailPage({ item, related }) {
           font-family: var(--wobl-mono);
           font-size: 0.85rem;
           color: var(--wobl-cream-dim);
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.8rem;
         }
         .rating {
           color: var(--wobl-marquee);
@@ -275,126 +283,78 @@ export default function MovieDetailPage({ item, related }) {
         .dot-sep::before {
           content: "·";
           margin-right: 0.6rem;
-          color: var(--wobl-cream-dim);
         }
         .genre-pills {
           display: flex;
           flex-wrap: wrap;
           gap: 0.4rem;
-          margin-bottom: 0.9rem;
+          margin-bottom: 1rem;
         }
         .genre-pill {
-          font-family: var(--wobl-body);
-          font-size: 0.72rem;
-          padding: 0.2rem 0.6rem;
+          font-size: 0.75rem;
+          padding: 0.25rem 0.7rem;
           border-radius: 20px;
           border: 0.5px solid rgba(255, 255, 255, 0.15);
           color: var(--wobl-cream-dim);
         }
-        .director-link {
-          display: inline-block;
-          font-family: var(--wobl-mono);
-          font-size: 0.8rem;
-          color: var(--wobl-amber);
-          text-decoration: none;
-          margin-bottom: 0.75rem;
-          border-bottom: 1px solid transparent;
-        }
-        .director-link:hover {
-          border-bottom-color: var(--wobl-amber);
-        }
         .desc {
-          font-family: var(--wobl-body);
           font-size: 0.95rem;
-          line-height: 1.55;
+          line-height: 1.6;
           color: var(--wobl-cream-dim);
-          margin-bottom: 1.1rem;
+          margin-bottom: 1.25rem;
         }
-        .trailer-trigger {
-          display: inline-flex;
-          align-items: center;
+        .media-tabs {
+          display: flex;
           gap: 0.5rem;
-          padding: 0.6rem 1.1rem;
-          border-radius: 30px;
-          border: none;
-          background: linear-gradient(
-            135deg,
-            var(--wobl-marquee),
-            var(--wobl-amber)
-          );
-          color: #0a0908;
-          font-family: var(--wobl-body);
-          font-size: 0.85rem;
-          font-weight: 600;
+        }
+        .tab-btn {
+          padding: 0.5rem 1rem;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: transparent;
+          color: #fff;
+          font-size: 0.8rem;
           cursor: pointer;
         }
-        .play-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #0a0908;
+        .tab-btn.active {
+          background: #fff;
+          color: #000;
+          border-color: #fff;
         }
         .content-body {
-          max-width: 680px;
+          max-width: 1100px;
           margin: 0 auto;
-          padding: 2.5rem 2rem 4rem;
-        }
-        .long-desc {
-          font-family: var(--wobl-body);
-          font-size: 0.95rem;
-          line-height: 1.65;
-          color: var(--wobl-cream-dim);
-          margin-bottom: 1.5rem;
-        }
-        .source-link {
-          display: inline-block;
-          font-family: var(--wobl-mono);
-          font-size: 0.85rem;
-          color: var(--wobl-marquee);
-          text-decoration: none;
-          border-bottom: 1px solid var(--wobl-marquee);
-          margin: 0.5rem 0 2rem;
+          padding: 3rem 2rem;
         }
         .section-eyebrow {
           display: block;
           font-family: var(--wobl-mono);
-          font-size: 0.72rem;
+          font-size: 0.75rem;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: var(--wobl-marquee);
-          margin-bottom: 1rem;
+          color: var(--wobl-amber);
+          margin-bottom: 0.75rem;
+        }
+        .long-desc {
+          font-size: 1rem;
+          line-height: 1.7;
+          color: var(--wobl-cream-dim);
+          margin-bottom: 2rem;
         }
         .related-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
           gap: 1.25rem;
         }
-        @media (max-width: 640px) {
-          .info-panel {
-            margin: 0 1.25rem 1.75rem;
-            padding: 1.25rem;
+        @media (max-width: 768px) {
+          .hero-content {
+            grid-template-columns: 1fr;
+            align-items: center;
           }
-          .related-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.6rem;
+          .poster-wrapper {
+            max-width: 180px;
+            margin: 0 auto;
           }
-        }
-      `}</style>
-
-      <style jsx global>{`
-        .trailer-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 1500;
-          background: rgba(10, 9, 8, 0.92);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 2rem;
-        }
-        .trailer-wrap {
-          width: min(1000px, 100%);
         }
       `}</style>
     </>
