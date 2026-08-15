@@ -1,285 +1,441 @@
-// pages/index.js
-// Wobl — Homepage
-// Marquee-style hero for the top featured title, then a trending grid.
-// Falls back gracefully if featured/trending flags aren't set on new syncs.
+// pages/movies/index.js
+// Wobl — Curated Cinematic Discovery Hub
 
+import { useState, useCallback, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { getFeatured, getTrending, getByCategory } from "shared/lib/items";
-import Navbar from "../components/shared/Navbar";
-import Footer from "../components/shared/Footer";
-import MovieCard from "../components/movies/MovieCard";
+import { getTrending, getByCategory } from "shared/lib/items";
+import { getAllGenres, getByGenre } from "shared/lib/movies";
+import Navbar from "../../components/shared/Navbar";
+import Footer from "../../components/shared/Footer";
+import MovieCard from "../../components/movies/MovieCard";
+import MovieCardSkeleton from "../../components/movies/MovieCardSkeleton";
+import GenreFilter from "../../components/movies/GenreFilter";
+import { W } from "../../components/shared/wobl-theme";
+
+const PAGE_SIZE = 18;
+
+const SORTS = [
+  { key: "trending", label: "Trending Now" },
+  { key: "newest", label: "Newest Releases" },
+  { key: "rating", label: "Highest Rated" },
+  { key: "popularity", label: "Most Popular" },
+];
 
 export async function getStaticProps() {
-  const [featuredList, trending, newest] = await Promise.all([
-    getFeatured(1, "movies"),
-    getTrending(12, "movies"),
-    getByCategory("movies", { limit: 12, sortBy: "newest" }),
+  const [hero, initial, genres] = await Promise.all([
+    getTrending(1, "movies"),
+    getByCategory("movies", { limit: PAGE_SIZE, sortBy: "trending" }),
+    getAllGenres(),
   ]);
 
   return {
     props: {
-      hero: featuredList[0] || trending[0] || null,
-      trending,
-      newest,
+      hero: hero[0] || null,
+      initialItems: initial,
+      genres,
     },
-    revalidate: 3600, // refresh hourly — matches sync cadence
+    revalidate: 3600,
   };
 }
 
-export default function HomePage({ hero, trending, newest }) {
+export default function MoviesHome({ hero, initialItems, genres }) {
+  const [sort, setSort] = useState("trending");
+  const [activeGenre, setActiveGenre] = useState(null);
+  const [items, setItems] = useState(initialItems);
+  const [offset, setOffset] = useState(initialItems.length);
+  const [hasMore, setHasMore] = useState(initialItems.length === PAGE_SIZE);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef(null);
+  const activeGenreRef = useRef(null);
+  activeGenreRef.current = activeGenre;
+
+  // Handle Sort changes
+  const handleSortChange = useCallback(async (newSort) => {
+    setSort(newSort);
+    setLoadingMore(true);
+    const data = activeGenreRef.current
+      ? await getByGenre(activeGenreRef.current, { limit: PAGE_SIZE })
+      : await getByCategory("movies", { limit: PAGE_SIZE, sortBy: newSort });
+    setItems(data);
+    setOffset(data.length);
+    setHasMore(data.length === PAGE_SIZE);
+    setLoadingMore(false);
+  }, []);
+
+  // Handle Genre filter changes
+  const handleGenreChange = useCallback(
+    async (genre) => {
+      setActiveGenre(genre);
+      setLoadingMore(true);
+      const data = genre
+        ? await getByGenre(genre, { limit: PAGE_SIZE })
+        : await getByCategory("movies", { limit: PAGE_SIZE, sortBy: sort });
+      setItems(data);
+      setOffset(data.length);
+      setHasMore(data.length === PAGE_SIZE);
+      setLoadingMore(false);
+    },
+    [sort],
+  );
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const more = await getByCategory("movies", {
+      limit: PAGE_SIZE,
+      offset,
+      sortBy: sort,
+    });
+    setItems((prev) => [...prev, ...more]);
+    setOffset((prev) => prev + more.length);
+    setHasMore(more.length === PAGE_SIZE);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, offset, sort]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: "400px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  const backdrop = hero?.backdrop_path || hero?.image || "";
+
   return (
     <>
       <Head>
-        <title>Wobl — What's actually rising</title>
+        <title>Movies & Series — Wobl</title>
         <meta
           name="description"
-          content="See what's actually rising in movies and shows — real ratings, no algorithm noise."
+          content="Curated cinema, real momentum, no algorithm noise."
         />
       </Head>
 
       <Navbar />
 
-      <main className="wobl-main">
-        {hero && <Hero item={hero} />}
+      <main
+        style={{ background: W.bg, minHeight: "100vh", paddingBottom: "6rem" }}
+      >
+        {/* --- IMMERSIVE CINEMATIC HERO SPOTLIGHT --- */}
+        {hero && (
+          <section className="hero-spotlight">
+            <div
+              className="hero-backdrop"
+              style={{ backgroundImage: `url(${backdrop})` }}
+            />
+            <div className="hero-gradient-overlay" />
 
-        <Section
-          eyebrow="Now Screening"
-          title="Trending"
-          items={trending}
-          emptyText="Nothing trending yet — check back after the next sync."
-        />
+            <div className="hero-content">
+              <div className="hero-badge">Featured Spotlight</div>
+              <h1 className="hero-title">{hero.name}</h1>
 
-        <Section
-          eyebrow="Fresh Prints"
-          title="Newest additions"
-          items={newest}
-          emptyText="No new titles yet."
-        />
+              <div className="hero-meta">
+                {hero.rating !=
+                <span className="rating">★ {hero.rating}</span> && (
+                  <span className="rating">★ {hero.rating}</span>
+                )}
+                {hero.year && <span className="dot-sep">{hero.year}</span>}
+                {hero.runtime && (
+                  <span className="dot-sep">{hero.runtime} min</span>
+                )}
+              </div>
+
+              {hero.short_desc && (
+                <p className="hero-desc">{hero.short_desc}</p>
+              )}
+
+              <div className="hero-actions">
+                <Link href={`/movies/${hero.slug}`} className="primary-btn">
+                  Watch Trailer & Details
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* --- UNIFIED DISCOVERY & CONTROL HUB --- */}
+        <section className="discovery-hub">
+          <div className="hub-container">
+            <div className="hub-header">
+              <span className="section-eyebrow">Explore Library</span>
+              <h2 className="hub-title">All Titles</h2>
+            </div>
+
+            {/* Sort Bar */}
+            <div className="sort-bar">
+              {SORTS.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => handleSortChange(s.key)}
+                  className={`sort-pill ${sort === s.key ? "active" : ""}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Genre Filter */}
+            <div className="genre-filter-wrapper">
+              <GenreFilter
+                genres={genres}
+                active={activeGenre}
+                onChange={handleGenreChange}
+              />
+            </div>
+
+            {/* Movie Grid */}
+            {items.length === 0 ? (
+              <div className="empty-state">
+                <span>No titles found matching this criteria.</span>
+              </div>
+            ) : (
+              <div className="movies-grid">
+                {items.map((item, i) => (
+                  <MovieCard key={item.id} item={item} frame={i + 1} />
+                ))}
+              </div>
+            )}
+
+            <div ref={sentinelRef} style={{ height: 1 }} />
+
+            {loadingMore && (
+              <div className="skeleton-grid">
+                <MovieCardSkeleton count={6} />
+              </div>
+            )}
+
+            {!hasMore && items.length > 0 && (
+              <div className="end-message">
+                <span>You’ve reached the end of the line.</span>
+              </div>
+            )}
+          </div>
+        </section>
       </main>
 
       <Footer />
 
       <style jsx>{`
-        .wobl-main {
-          background: var(--wobl-bg);
-          min-height: 100vh;
-          padding-bottom: 4rem;
-        }
-      `}</style>
-    </>
-  );
-}
-
-function Hero({ item }) {
-  const backdrop = item.backdrop_path || item.image;
-  return (
-    <section className="hero">
-      {backdrop && (
-        <div
-          className="hero-backdrop"
-          style={{ backgroundImage: `url(${backdrop})` }}
-        />
-      )}
-      <div className="hero-scrim" />
-      <div className="hero-content">
-        <span className="hero-eyebrow">Featured Tonight</span>
-        <h1 className="hero-title">{item.name}</h1>
-        <div className="hero-meta">
-          {item.year && <span>{item.year}</span>}
-          {item.rating != null && (
-            <span className="hero-rating">★ {item.rating}</span>
-          )}
-          {item.type === "tv" && <span className="hero-badge">Series</span>}
-        </div>
-        {item.short_desc && <p className="hero-desc">{item.short_desc}</p>}
-        <Link href={`/movies/${item.slug}`} className="hero-cta">
-          View details →
-        </Link>
-      </div>
-
-      <style jsx>{`
-        .hero {
+        /* Hero Spotlight Styles */
+        .hero-spotlight {
           position: relative;
-          min-height: 60vh;
+          width: 100%;
+          height: 70vh;
+          max-height: 600px;
+          min-height: 450px;
           display: flex;
           align-items: flex-end;
+          padding: 4rem 2rem;
           overflow: hidden;
+          margin-bottom: 3rem;
         }
+
         .hero-backdrop {
           position: absolute;
           inset: 0;
           background-size: cover;
-          background-position: center 20%;
-          filter: saturate(0.9);
+          background-position: center top;
+          z-index: 0;
         }
-        .hero-scrim {
+
+        .hero-gradient-overlay {
           position: absolute;
           inset: 0;
           background: linear-gradient(
-            to top,
-            var(--wobl-bg) 5%,
-            rgba(20, 17, 15, 0.6) 45%,
-            rgba(20, 17, 15, 0.15) 100%
+            180deg,
+            rgba(10, 9, 8, 0.2) 0%,
+            rgba(10, 9, 8, 0.6) 60%,
+            var(--wobl-bg, #0a0908) 100%
           );
+          z-index: 1;
         }
+
         .hero-content {
           position: relative;
-          z-index: 1;
-          padding: 3rem 2rem 4rem;
-          max-width: 720px;
+          z-index: 2;
+          max-width: 1100px;
+          width: 100%;
+          margin: 0 auto;
         }
-        @media (max-width: 640px) {
-          .hero {
-            min-height: 46vh;
-          }
-          .hero-content {
-            padding: 1.5rem 1.25rem 2rem;
-          }
-        }
-        .hero-eyebrow {
-          font-family: var(--wobl-mono);
-          font-size: 0.75rem;
+
+        .hero-badge {
+          display: inline-block;
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.7rem;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: var(--wobl-amber);
+          color: var(--wobl-amber, #f59e0b);
+          background: rgba(245, 158, 11, 0.1);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          margin-bottom: 0.75rem;
         }
+
         .hero-title {
-          font-family: var(--wobl-display);
-          font-size: clamp(2.2rem, 5vw, 3.75rem);
-          font-weight: 600;
-          color: var(--wobl-cream);
-          margin: 0.4rem 0 0.75rem;
-          line-height: 1.05;
+          font-family: var(--wobl-display, sans-serif);
+          font-size: clamp(2.2rem, 4vw, 3.5rem);
+          color: var(--wobl-cream, #fff);
+          margin: 0 0 0.5rem;
+          line-height: 1.1;
+          letter-spacing: -0.01em;
         }
+
         .hero-meta {
           display: flex;
-          gap: 1rem;
-          font-family: var(--wobl-mono);
-          font-size: 0.9rem;
-          color: var(--wobl-cream-dim);
+          align-items: center;
+          gap: 0.75rem;
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.85rem;
+          color: var(--wobl-cream-dim, #ccc);
           margin-bottom: 1rem;
         }
-        .hero-rating {
-          color: var(--wobl-marquee);
+
+        .rating {
+          color: var(--wobl-amber, #f59e0b);
+          font-weight: 600;
         }
-        .hero-badge {
-          border: 1px solid var(--wobl-cream-dim);
-          border-radius: 3px;
-          padding: 0.05rem 0.5rem;
+
+        .dot-sep::before {
+          content: "·";
+          margin-right: 0.75rem;
         }
+
         .hero-desc {
-          color: var(--wobl-cream-dim);
           font-size: 1rem;
-          line-height: 1.5;
+          line-height: 1.6;
+          color: var(--wobl-cream-dim, #ddd);
+          max-width: 650px;
           margin-bottom: 1.5rem;
-          max-width: 55ch;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
-        @media (max-width: 640px) {
-          /* Desktop gets the full pitch; mobile stays scannable —
-             description trimmed via CSS line-clamp instead of removed
-             entirely, so context isn't lost, just condensed. */
-          .hero-desc {
-            font-size: 0.9rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-          }
-        }
-        .hero-cta {
-          display: inline-block;
-          font-family: var(--wobl-mono);
-          font-size: 0.9rem;
-          color: var(--wobl-marquee);
+
+        .primary-btn {
+          display: inline-flex;
+          align-items: center;
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.82rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-weight: 600;
+          background: var(--wobl-amber, #f59e0b);
+          color: #000;
+          padding: 0.75rem 1.75rem;
+          border-radius: 30px;
           text-decoration: none;
-          border-bottom: 1px solid var(--wobl-marquee);
-          padding-bottom: 2px;
+          transition:
+            transform 0.2s ease,
+            background 0.2s ease;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
         }
-        .hero-cta:hover {
-          color: var(--wobl-amber);
-          border-color: var(--wobl-amber);
-        }
-      `}</style>
-    </section>
-  );
-}
 
-function Section({ eyebrow, title, items, emptyText }) {
-  return (
-    <section className="section">
-      <div className="section-head">
-        <span className="section-eyebrow">{eyebrow}</span>
-        <h2 className="section-title">{title}</h2>
-      </div>
+        .primary-btn:hover {
+          transform: translateY(-2px);
+          background: #fbbf24;
+        }
 
-      {items && items.length > 0 ? (
-        <div className="grid">
-          {items.map((item, i) => (
-            <MovieCard key={item.id} item={item} frame={i + 1} />
-          ))}
-        </div>
-      ) : (
-        <p className="empty">{emptyText}</p>
-      )}
+        /* Discovery Hub Styles */
+        .discovery-hub {
+          max-width: 1260px;
+          margin: 0 auto;
+          padding: 0 2rem;
+        }
 
-      <style jsx>{`
-        .section {
-          padding: 2.5rem 2rem 0;
+        .hub-container {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
         }
-        @media (max-width: 640px) {
-          .section {
-            padding: 1.75rem 1.25rem 0;
-          }
+
+        .hub-header {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
         }
-        @media (min-width: 1440px) {
-          /* Desktop-only breathing room — wide screens get more generous
-             section spacing rather than just a wider grid. */
-          .section {
-            padding: 3.5rem 3rem 0;
-          }
-        }
-        .section-head {
-          margin-bottom: 1.25rem;
-        }
+
         .section-eyebrow {
-          display: block;
-          font-family: var(--wobl-mono);
+          font-family: var(--wobl-mono, monospace);
           font-size: 0.72rem;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: var(--wobl-marquee);
-          margin-bottom: 0.25rem;
+          color: var(--wobl-amber, #f59e0b);
         }
-        .section-title {
-          font-family: var(--wobl-display);
-          font-size: 1.6rem;
-          color: var(--wobl-cream);
+
+        .hub-title {
+          font-family: var(--wobl-display, sans-serif);
+          font-size: 1.8rem;
+          color: var(--wobl-cream, #fff);
           margin: 0;
         }
-        .grid {
+
+        .sort-bar {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sort-pill {
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.78rem;
+          letter-spacing: 0.05em;
+          padding: 0.5rem 1.25rem;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.03);
+          color: var(--wobl-cream-dim, #aaa);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .sort-pill:hover {
+          background: rgba(255, 255, 255, 0.07);
+          color: #fff;
+        }
+
+        .sort-pill.active {
+          background: rgba(245, 158, 11, 0.12);
+          border-color: var(--wobl-amber, #f59e0b);
+          color: var(--wobl-amber, #f59e0b);
+        }
+
+        .genre-filter-wrapper {
+          margin-bottom: 0.5rem;
+        }
+
+        .movies-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-          gap: 1.25rem;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 1.5rem;
         }
-        @media (max-width: 640px) {
-          .grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.85rem;
-          }
+
+        .empty-state,
+        .end-message {
+          text-align: center;
+          padding: 3rem 1rem;
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.4);
         }
-        @media (min-width: 1440px) {
-          .grid {
-            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-            gap: 1.5rem;
-          }
-        }
-        .empty {
-          color: var(--wobl-cream-dim);
-          font-family: var(--wobl-mono);
-          font-size: 0.9rem;
+
+        .skeleton-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          gap: 1.5rem;
+          margin-top: 1.5rem;
         }
       `}</style>
-    </section>
+    </>
   );
 }
