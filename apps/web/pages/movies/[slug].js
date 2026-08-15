@@ -8,7 +8,7 @@
 // <CastList tmdbId={item.source_id} />
 
 import { useEffect, useState } from "react";
-import { W } from "../shared/wobl-theme";
+import { W } from "../../components/shared/wobl-theme";
 
 function parseMediaId(rawId) {
   const value = String(rawId || "").trim();
