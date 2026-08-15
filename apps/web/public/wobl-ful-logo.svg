@@ -1,0 +1,43 @@
+<svg width="220" height="64" viewBox="0 0 220 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Smooth orange-to-copper gradient matching the high-end render -->
+    <linearGradient id="woblGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#C55624" />
+      <stop offset="50%" stop-color="#E27C3E" />
+      <stop offset="100%" stop-color="#F2A65A" />
+    </linearGradient>
+
+    <!-- Subtle drop shadow matching the tactile 3D effect -->
+    <filter id="softShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- LOGO MARK -->
+  <g filter="url(#softShadow)">
+    <!-- Bar 1 (Left) -->
+    <rect x="10" y="34" width="10" height="20" rx="5" fill="url(#woblGrad)" />
+    
+    <!-- Bar 2 (Middle) -->
+    <rect x="27" y="20" width="10" height="34" rx="5" fill="url(#woblGrad)" />
+    
+    <!-- Bar 3 (Right) -->
+    <rect x="44" y="10" width="10" height="44" rx="5" fill="url(#woblGrad)" />
+    
+    <!-- Perfectly proportioned dot from original image -->
+    <circle cx="49" cy="4" r="3.2" fill="url(#woblGrad)" />
+  </g>
+
+  <!-- WORDMARK -->
+  <text
+    x="72"
+    y="42"
+    font-family="'Fraunces', 'Georgia', 'Times New Roman', serif"
+    font-size="30"
+    font-weight="600"
+    letter-spacing="0.8"
+    fill="#F5EFE6"
+  >
+    WOBL
+  </text>
+</svg>

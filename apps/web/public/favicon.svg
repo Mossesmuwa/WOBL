@@ -1,14 +1,39 @@
-<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <radialGradient id="woblBg" cx="35%" cy="25%" r="80%">
-      <stop offset="0%" stop-color="#3D2C1F" />
-      <stop offset="100%" stop-color="#0A0908" />
+    <!-- Background Gradient -->
+    <radialGradient id="bg-grad" cx="50%" cy="30%" r="75%" fx="50%" fy="20%">
+      <stop offset="0%" stop-color="#221814" />
+      <stop offset="50%" stop-color="#120c09" />
+      <stop offset="100%" stop-color="#050302" />
+    </radialGradient>
+
+    <!-- Bar Gradient -->
+    <linearGradient id="bar-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#d96b27" />
+      <stop offset="45%" stop-color="#ee8838" />
+      <stop offset="100%" stop-color="#f2ad61" />
+    </linearGradient>
+
+    <!-- Top Dot Gradient for Extra Pop -->
+    <radialGradient id="dot-grad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#f7be7b" />
+      <stop offset="60%" stop-color="#ee8838" />
+      <stop offset="100%" stop-color="#d96b27" />
     </radialGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="url(#woblBg)" />
-  <path
-    d="M14 22 L21 44 L27 28 L33 44 L39 44 L46 22 L40 22 L35.5 38 L30 22 L26 22 L20.5 38 L20 22 Z"
-    fill="#D9713C"
-  />
-  <circle cx="32" cy="14" r="2.5" fill="#F2A65A" />
+
+  <!-- Squircle / Rounded Background Box -->
+  <rect x="0" y="0" width="512" height="512" rx="115" ry="115" fill="url(#bg-grad)" />
+
+  <!-- Bar 1 (Left / Short) -->
+  <rect x="104" y="288" width="76" height="136" rx="38" ry="38" fill="url(#bar-grad)" />
+
+  <!-- Bar 2 (Middle) -->
+  <rect x="218" y="192" width="76" height="232" rx="38" ry="38" fill="url(#bar-grad)" />
+
+  <!-- Bar 3 (Right / Tall) -->
+  <rect x="332" y="116" width="76" height="308" rx="38" ry="38" fill="url(#bar-grad)" />
+
+  <!-- Floating Dot above Bar 3 -->
+  <circle cx="370" cy="62" r="38" fill="url(#dot-grad)" />
 </svg>

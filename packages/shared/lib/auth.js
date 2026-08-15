@@ -21,6 +21,18 @@ export async function register(email, password) {
   return { success: true, user: data.user };
 }
 
+export async function loginWithGoogle() {
+  if (!supabase) return { success: false, error: "Database not ready." };
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
 export async function logout() {
   if (!supabase) return { success: false };
   const { error } = await supabase.auth.signOut();

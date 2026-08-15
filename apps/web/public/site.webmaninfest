@@ -1,7 +1,7 @@
 {
   "name": "Wobl",
   "short_name": "Wobl",
-  "description": "See what's actually rising in movies and shows — real ratings, no algorithm noise.",
+  "description": "The best pick, not endless browsing. See what's actually worth watching right now — real ratings, no algorithm noise.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0908",
@@ -12,6 +12,23 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ]
 }

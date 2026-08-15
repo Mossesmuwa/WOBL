@@ -1,100 +1,137 @@
 // pages/movies/[slug].js
-// Wobl — Movie/TV detail page. Trailer player is the hero of this page
-// (per spec 3.3), not a plain link-out. Real stats only — no fake scoring.
+// Wobl — Movie/TV detail page. Magazine-style: ambient backdrop with a
+// glass info panel (title, rating, genre, save/share, trailer trigger)
+// composed as one unit — not stacked separate blocks. Trailer opens from
+// within the panel rather than sitting as a detached top element.
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { getBySlug, getRelated } from "shared/lib/items";
 import Navbar from "../../components/shared/Navbar";
 import Footer from "../../components/shared/Footer";
 import MovieCard from "../../components/movies/MovieCard";
+import MovieCardSkeleton from "../../components/movies/MovieCardSkeleton";
 import TrailerPlayer from "../../components/movies/TrailerPlayer";
 import CastList from "../../components/movies/CastList";
 import MovieSEO from "../../components/movies/MovieSEO";
 import SaveButton from "../../components/movies/SaveButton";
 import ShareButton from "../../components/movies/ShareButton";
-import { W } from "../../components/shared/wobl-theme";
+import { W, glassPanel } from "../../components/shared/wobl-theme";
 
 export async function getStaticPaths() {
-  // Render on-demand — movie catalog is large and changes daily via sync.
   return { paths: [], fallback: "blocking" };
 }
 
 export async function getStaticProps({ params }) {
   const item = await getBySlug(params.slug);
   if (!item) return { notFound: true };
-
   const related = await getRelated(item, 6);
-
-  return {
-    props: { item, related },
-    revalidate: 3600,
-  };
+  return { props: { item, related }, revalidate: 3600 };
 }
 
 export default function MovieDetailPage({ item, related }) {
+  const router = useRouter();
+  const [trailerOpen, setTrailerOpen] = useState(false);
+
   useEffect(() => {
-    // Fire-and-forget — never blocks rendering, failure is silent since
-    // a view-count miss isn't worth showing the user an error for.
+    if (!item) return;
     fetch("/api/track-view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug: item.slug }),
     }).catch(() => {});
-  }, [item.slug]);
+  }, [item?.slug]);
+
+  // Blocking-fallback pages render nothing until ready — a real gap on
+  // slower connections. This gives an actual loading state instead of a
+  // blank screen while Next resolves the page.
+  if (router.isFallback || !item) {
+    return (
+      <>
+        <Navbar />
+        <main
+          style={{ background: W.bg, minHeight: "100vh", padding: "3rem 2rem" }}
+        >
+          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <div
+              style={{
+                aspectRatio: "21/9",
+                borderRadius: W.radius,
+                background: W.surface,
+                animation: "woblDetailPulse 1.4s ease-in-out infinite",
+              }}
+            />
+            <style jsx>{`
+              @keyframes woblDetailPulse {
+                0%,
+                100% {
+                  opacity: 0.5;
+                }
+                50% {
+                  opacity: 0.9;
+                }
+              }
+            `}</style>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  const genres = (item.genre || "")
+    .split(",")
+    .map((g) => g.trim())
+    .filter(Boolean);
+  const backdrop = item.backdrop_path || item.image;
 
   return (
     <>
       <MovieSEO item={item} />
-
       <Navbar />
 
       <main style={{ background: W.bg, minHeight: "100vh" }}>
-        <div
-          style={{ maxWidth: 1000, margin: "0 auto", padding: "1.5rem 2rem 0" }}
-        >
-          {/* Trailer player is the hero — per spec, this is the moment
-              that sells whether the title is worth someone's time. */}
-          <TrailerPlayer
-            tmdbId={item.source_id}
-            slug={item.slug}
-            itemName={item.name}
-            trailers={item.trailer_url ? [item.trailer_url] : []}
-            backdropUrl={item.backdrop_path || item.image}
-          />
-        </div>
+        <section className="ambient-hero">
+          {backdrop && (
+            <div
+              className="backdrop"
+              style={{ backgroundImage: `url(${backdrop})` }}
+            />
+          )}
+          <div className="scrim" />
 
-        <div className="detail-content">
-          <div className="poster-col">
-            {item.image ? (
-              <img src={item.image} alt={item.name} className="poster" />
-            ) : (
-              <div className="poster poster-fallback">{item.name}</div>
-            )}
-          </div>
-
-          <div className="info-col">
-            {item.type === "tv" && <span className="eyebrow">Series</span>}
-            <div className="title-row">
-              <h1 className="title">{item.name}</h1>
-              <div className="title-actions">
+          <div className="info-panel">
+            <div className="panel-top">
+              {item.type === "tv" && <span className="eyebrow">Series</span>}
+              <div className="actions">
                 <SaveButton item={item} />
                 <ShareButton item={item} />
               </div>
             </div>
 
-            <div className="stats">
-              {item.year && <Stat label="Year" value={item.year} />}
+            <h1 className="title">{item.name}</h1>
+
+            <div className="meta-row">
               {item.rating != null && (
-                <Stat label="Rating" value={`★ ${item.rating}`} highlight />
+                <span className="rating">★ {item.rating}</span>
               )}
+              {item.year && <span className="dot-sep">{item.year}</span>}
               {item.rating_count > 0 && (
-                <Stat
-                  label="Votes"
-                  value={item.rating_count.toLocaleString()}
-                />
+                <span className="dot-sep">
+                  {item.rating_count.toLocaleString()} votes
+                </span>
               )}
-              {item.genre && <Stat label="Genre" value={item.genre} />}
             </div>
+
+            {genres.length > 0 && (
+              <div className="genre-pills">
+                {genres.map((g) => (
+                  <span key={g} className="genre-pill">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {item.director && (
               <a
@@ -105,155 +142,218 @@ export default function MovieDetailPage({ item, related }) {
               </a>
             )}
 
-            {item.long_desc && <p className="desc">{item.long_desc}</p>}
+            {item.short_desc && <p className="desc">{item.short_desc}</p>}
 
-            <CastList cast={item.metadata?.cast} />
+            <button
+              className="trailer-trigger"
+              onClick={() => setTrailerOpen(true)}
+            >
+              <span className="play-dot" />
+              Watch trailer
+            </button>
+          </div>
+        </section>
 
-            {item.source_url && (
-              <a
-                href={item.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="source-link"
-              >
-                View on TMDB →
-              </a>
-            )}
+        <div className="content-body">
+          {item.long_desc && item.long_desc !== item.short_desc && (
+            <p className="long-desc">{item.long_desc}</p>
+          )}
+
+          <CastList cast={item.metadata?.cast} />
+
+          {item.source_url && (
+            <a
+              href={item.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="source-link"
+            >
+              View on TMDB →
+            </a>
+          )}
+
+          {related && related.length > 0 && (
+            <section className="related">
+              <span className="section-eyebrow">You Might Also Like</span>
+              <div className="related-grid">
+                {related.map((r) => (
+                  <MovieCard key={r.id} item={r} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+
+      {trailerOpen && (
+        <div className="trailer-overlay" onClick={() => setTrailerOpen(false)}>
+          <div className="trailer-wrap" onClick={(e) => e.stopPropagation()}>
+            <TrailerPlayer
+              tmdbId={item.source_id}
+              slug={item.slug}
+              itemName={item.name}
+              trailers={item.trailer_url ? [item.trailer_url] : []}
+              backdropUrl={backdrop}
+            />
           </div>
         </div>
-
-        {related && related.length > 0 && (
-          <section className="related">
-            <span className="section-eyebrow">You Might Also Like</span>
-            <div className="related-grid">
-              {related.map((r) => (
-                <MovieCard key={r.id} item={r} />
-              ))}
-            </div>
-          </section>
-        )}
-      </main>
+      )}
 
       <Footer />
 
       <style jsx>{`
-        .detail-content {
+        .ambient-hero {
+          position: relative;
+          min-height: 62vh;
+          display: flex;
+          align-items: flex-end;
+          overflow: hidden;
+        }
+        .backdrop {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: center 20%;
+          filter: saturate(0.9);
+        }
+        .scrim {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to top,
+            var(--wobl-bg) 8%,
+            rgba(10, 9, 8, 0.55) 50%,
+            rgba(10, 9, 8, 0.15) 100%
+          );
+        }
+        .info-panel {
           position: relative;
           z-index: 1;
-          display: grid;
-          grid-template-columns: 220px 1fr;
-          gap: 2rem;
-          max-width: 1000px;
-          margin: 0 auto;
-          padding: 2rem 2rem 3rem;
+          max-width: 680px;
+          margin: 0 2rem 2.5rem;
+          padding: 1.75rem;
+          border-radius: var(--wobl-radius, 14px);
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(24px) saturate(1.4);
+          border: 0.5px solid rgba(255, 255, 255, 0.12);
         }
-        @media (max-width: 640px) {
-          .detail-content {
-            grid-template-columns: 1fr;
-            padding-top: 1.5rem;
-            padding-left: 1.25rem;
-            padding-right: 1.25rem;
-            gap: 1.25rem;
-          }
-          .poster-col {
-            display: flex;
-            justify-content: center;
-          }
-          .poster-col :global(img),
-          .poster-col :global(.poster-fallback) {
-            max-width: 140px;
-          }
-        }
-        @media (min-width: 1440px) {
-          .detail-content {
-            grid-template-columns: 280px 1fr;
-            max-width: 1200px;
-            gap: 3rem;
-          }
-        }
-        .poster {
-          width: 100%;
-          border-radius: 8px;
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-        }
-        .poster-fallback {
-          aspect-ratio: 2 / 3;
+        .panel-top {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--wobl-surface);
-          font-family: var(--wobl-display);
-          color: var(--wobl-cream-dim);
-          text-align: center;
-          padding: 1rem;
+          justify-content: space-between;
+          align-items: flex-start;
         }
         .eyebrow {
           font-family: var(--wobl-mono);
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           letter-spacing: 0.14em;
           text-transform: uppercase;
           color: var(--wobl-amber);
         }
-        .title-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 1rem;
-        }
-        .title-actions {
+        .actions {
           display: flex;
           gap: 0.5rem;
-          flex-shrink: 0;
-          margin-top: 0.5rem;
         }
         .title {
           font-family: var(--wobl-display);
-          font-size: clamp(1.8rem, 4vw, 2.75rem);
+          font-size: clamp(1.8rem, 4vw, 2.5rem);
           color: var(--wobl-cream);
-          margin: 0.3rem 0 1rem;
-          line-height: 1.1;
+          margin: 0.4rem 0 0.6rem;
+          line-height: 1.08;
         }
-        .stats {
+        .meta-row {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          font-family: var(--wobl-mono);
+          font-size: 0.85rem;
+          color: var(--wobl-cream-dim);
+          margin-bottom: 0.75rem;
+        }
+        .rating {
+          color: var(--wobl-marquee);
+        }
+        .dot-sep::before {
+          content: "·";
+          margin-right: 0.6rem;
+          color: var(--wobl-cream-dim);
+        }
+        .genre-pills {
           display: flex;
           flex-wrap: wrap;
-          gap: 1.5rem;
-          margin-bottom: 1.5rem;
+          gap: 0.4rem;
+          margin-bottom: 0.9rem;
         }
-        @media (max-width: 640px) {
-          .stats {
-            gap: 1rem;
-          }
-        }
-        .desc {
+        .genre-pill {
+          font-family: var(--wobl-body);
+          font-size: 0.72rem;
+          padding: 0.2rem 0.6rem;
+          border-radius: 20px;
+          border: 0.5px solid rgba(255, 255, 255, 0.15);
           color: var(--wobl-cream-dim);
-          line-height: 1.6;
-          max-width: 65ch;
-          margin-bottom: 1.5rem;
         }
         .director-link {
           display: inline-block;
           font-family: var(--wobl-mono);
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           color: var(--wobl-amber);
           text-decoration: none;
-          margin-bottom: 1rem;
+          margin-bottom: 0.75rem;
           border-bottom: 1px solid transparent;
         }
         .director-link:hover {
           border-bottom-color: var(--wobl-amber);
         }
+        .desc {
+          font-family: var(--wobl-body);
+          font-size: 0.95rem;
+          line-height: 1.55;
+          color: var(--wobl-cream-dim);
+          margin-bottom: 1.1rem;
+        }
+        .trailer-trigger {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.6rem 1.1rem;
+          border-radius: 30px;
+          border: none;
+          background: linear-gradient(
+            135deg,
+            var(--wobl-marquee),
+            var(--wobl-amber)
+          );
+          color: #0a0908;
+          font-family: var(--wobl-body);
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .play-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #0a0908;
+        }
+        .content-body {
+          max-width: 680px;
+          margin: 0 auto;
+          padding: 2.5rem 2rem 4rem;
+        }
+        .long-desc {
+          font-family: var(--wobl-body);
+          font-size: 0.95rem;
+          line-height: 1.65;
+          color: var(--wobl-cream-dim);
+          margin-bottom: 1.5rem;
+        }
         .source-link {
           display: inline-block;
           font-family: var(--wobl-mono);
-          font-size: 0.9rem;
+          font-size: 0.85rem;
           color: var(--wobl-marquee);
           text-decoration: none;
           border-bottom: 1px solid var(--wobl-marquee);
-        }
-        .related {
-          max-width: 1000px;
-          margin: 0 auto;
-          padding: 1rem 2rem 4rem;
+          margin: 0.5rem 0 2rem;
         }
         .section-eyebrow {
           display: block;
@@ -270,44 +370,33 @@ export default function MovieDetailPage({ item, related }) {
           gap: 1.25rem;
         }
         @media (max-width: 640px) {
+          .info-panel {
+            margin: 0 1.25rem 1.75rem;
+            padding: 1.25rem;
+          }
           .related-grid {
             grid-template-columns: repeat(3, 1fr);
             gap: 0.6rem;
           }
         }
       `}</style>
-    </>
-  );
-}
 
-function Stat({ label, value, highlight }) {
-  return (
-    <div className="stat">
-      <span className="stat-label">{label}</span>
-      <span className={highlight ? "stat-value highlight" : "stat-value"}>
-        {value}
-      </span>
-      <style jsx>{`
-        .stat {
+      <style jsx global>{`
+        .trailer-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 1500;
+          background: rgba(10, 9, 8, 0.92);
+          backdrop-filter: blur(8px);
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
         }
-        .stat-label {
-          font-family: var(--wobl-mono);
-          font-size: 0.65rem;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--wobl-cream-dim);
-        }
-        .stat-value {
-          font-family: var(--wobl-display);
-          font-size: 1.1rem;
-          color: var(--wobl-cream);
-        }
-        .highlight {
-          color: var(--wobl-marquee);
+        .trailer-wrap {
+          width: min(1000px, 100%);
         }
       `}</style>
-    </div>
+    </>
   );
 }
