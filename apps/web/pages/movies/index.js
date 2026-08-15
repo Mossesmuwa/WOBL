@@ -1,5 +1,5 @@
 // pages/movies/index.js
-// Wobl — Curated Cinematic Discovery Hub
+// Vura — Curated Cinematic Discovery Hub (Cinematic Marquee Edition)
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
@@ -37,7 +37,6 @@ export default function MoviesIndex({
   trendingMovies,
   seriesRows,
   topRatedRows,
-  genres,
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -45,10 +44,14 @@ export default function MoviesIndex({
 
   const totalHero = heroCarousel.length;
 
-  // Auto-advance hero carousel every 7 seconds unless paused
   const nextSlide = useCallback(() => {
     if (totalHero === 0) return;
     setActiveIndex((prev) => (prev + 1) % totalHero);
+  }, [totalHero]);
+
+  const prevSlide = useCallback(() => {
+    if (totalHero === 0) return;
+    setActiveIndex((prev) => (prev - 1 + totalHero) % totalHero);
   }, [totalHero]);
 
   useEffect(() => {
@@ -58,12 +61,13 @@ export default function MoviesIndex({
   }, [activeIndex, isPaused, nextSlide, totalHero]);
 
   const currentHero = heroCarousel[activeIndex] || heroCarousel[0] || null;
+  // Ensure we lean heavily on high-res backdrop imagery, falling back gracefully
   const backdrop = currentHero?.backdrop_path || currentHero?.image || "";
 
   return (
     <>
       <Head>
-        <title>Cinematic Index & Series — Wura</title>
+        <title>Cinematic Index & Series — Vura</title>
         <meta
           name="description"
           content="Immersive cinema, premium series, and curated editorial rails."
@@ -73,20 +77,61 @@ export default function MoviesIndex({
       <Navbar />
 
       <main className="movies-index">
-        {/* --- 1. AUTOSWIPING CINEMATIC HERO MARQUEE (TOP 9) --- */}
+        {/* --- 1. CINEMATIC HERO MARQUEE (TOP 9) --- */}
         {heroCarousel.length > 0 && (
           <section
             className="hero-marquee"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           >
+            {/* Background Layer with Smooth Crossfade */}
             <div
               key={currentHero.id}
-              className="hero-backdrop fade-in"
+              className="hero-backdrop-layer fade-in"
               style={{ backgroundImage: `url(${backdrop})` }}
             />
-            <div className="hero-vignette" />
 
+            {/* Multi-tier Cinematic Vignette Overlay */}
+            <div className="hero-vignette-top" />
+            <div className="hero-vignette-bottom" />
+            <div className="hero-vignette-left" />
+
+            {/* Glassy Interactive Navigation Arrows */}
+            <button
+              onClick={prevSlide}
+              className="hero-nav-arrow arrow-left"
+              aria-label="Previous Featured Film"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+              >
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+
+            <button
+              onClick={nextSlide}
+              className="hero-nav-arrow arrow-right"
+              aria-label="Next Featured Film"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+
+            {/* Bottom-Left Positioned Minimalist Title & Action Hub */}
             <div className="hero-content">
               <div className="hero-top-meta">
                 <span className="hero-rank-tag">
@@ -112,10 +157,6 @@ export default function MoviesIndex({
                 )}
               </div>
 
-              {currentHero.short_desc && (
-                <p className="hero-desc">{currentHero.short_desc}</p>
-              )}
-
               <div className="hero-cta-group">
                 <Link
                   href={`/movies/${currentHero.slug}`}
@@ -136,7 +177,7 @@ export default function MoviesIndex({
               </div>
             </div>
 
-            {/* Carousel Pagination Ticks / Indicators */}
+            {/* Interactive Bottom Pagination Ticks */}
             <div className="hero-indicators">
               {heroCarousel.map((item, idx) => (
                 <button
@@ -227,7 +268,7 @@ export default function MoviesIndex({
 
         {/* --- 4. CRITICALLY ACCLAIMED RAIL --- */}
         {topRatedRows.length > 0 && (
-          <section className="editorial-rail" style={{ marginBottom: "5rem" }}>
+          <section className="editorial-rail" style={{ marginBottom: "6rem" }}>
             <div className="rail-container">
               <div className="rail-header">
                 <div>
@@ -277,31 +318,32 @@ export default function MoviesIndex({
         .hero-marquee {
           position: relative;
           width: 100%;
-          height: 75vh;
-          max-height: 680px;
-          min-height: 500px;
+          height: 82vh;
+          max-height: 740px;
+          min-height: 540px;
           display: flex;
           align-items: flex-end;
-          padding: 4rem 3.5rem 3rem;
+          padding: 4rem 5rem 3.5rem;
           overflow: hidden;
         }
 
-        .hero-backdrop {
+        .hero-backdrop-layer {
           position: absolute;
           inset: 0;
           background-size: cover;
-          background-position: center 25%;
+          background-position: center 20%;
           z-index: 0;
+          will-change: transform, opacity;
         }
 
         .fade-in {
-          animation: heroFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation: heroFadeIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         @keyframes heroFadeIn {
           from {
-            opacity: 0.4;
-            transform: scale(1.02);
+            opacity: 0.35;
+            transform: scale(1.03);
           }
           to {
             opacity: 1;
@@ -309,36 +351,105 @@ export default function MoviesIndex({
           }
         }
 
-        .hero-vignette {
+        /* Advanced Atmospheric Vignettes */
+        .hero-vignette-top {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 180px;
+          background: linear-gradient(
+            180deg,
+            rgba(10, 9, 8, 0.85) 0%,
+            transparent 100%
+          );
+          z-index: 1;
+          pointer-events: none;
+        }
+
+        .hero-vignette-bottom {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 380px;
+          background: linear-gradient(
+            0deg,
+            var(--wobl-bg, #0a0908) 0%,
+            rgba(10, 9, 8, 0.7) 45%,
+            transparent 100%
+          );
+          z-index: 1;
+          pointer-events: none;
+        }
+
+        .hero-vignette-left {
           position: absolute;
           inset: 0;
           background: linear-gradient(
-            180deg,
-            rgba(10, 9, 8, 0.1) 0%,
-            rgba(10, 9, 8, 0.65) 50%,
-            var(--wobl-bg, #0a0908) 100%
+            90deg,
+            rgba(10, 9, 8, 0.65) 0%,
+            transparent 55%
           );
           z-index: 1;
+          pointer-events: none;
         }
 
+        /* Glassy Navigation Arrows */
+        .hero-nav-arrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 4;
+          background: rgba(15, 14, 12, 0.45);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: rgba(255, 255, 255, 0.85);
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .arrow-left {
+          left: 2.5rem;
+        }
+        .arrow-right {
+          right: 2.5rem;
+        }
+
+        .hero-nav-arrow:hover {
+          background: rgba(245, 158, 11, 0.2);
+          border-color: var(--wobl-amber, #f59e0b);
+          color: var(--wobl-amber, #f59e0b);
+          transform: translateY(-50%) scale(1.08);
+          box-shadow: 0 14px 35px rgba(245, 158, 11, 0.25);
+        }
+
+        /* Bottom-Left Positioned Content Hub */
         .hero-content {
           position: relative;
-          z-index: 2;
-          max-width: 900px;
+          z-index: 3;
+          max-width: 800px;
           width: 100%;
-          margin: 0 auto 1.5rem;
+          margin-bottom: 0.5rem;
         }
 
         .hero-top-meta {
           display: flex;
           align-items: center;
           gap: 1rem;
-          margin-bottom: 1rem;
+          margin-bottom: 0.85rem;
         }
 
         .hero-rank-tag {
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           letter-spacing: 0.15em;
           text-transform: uppercase;
           color: var(--wobl-amber, #f59e0b);
@@ -350,7 +461,7 @@ export default function MoviesIndex({
 
         .hero-rating-pill {
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: var(--wobl-amber, #f59e0b);
           background: rgba(10, 9, 8, 0.7);
           backdrop-filter: blur(8px);
@@ -362,12 +473,12 @@ export default function MoviesIndex({
 
         .hero-title {
           font-family: var(--wobl-display, sans-serif);
-          font-size: clamp(2.5rem, 5vw, 4.2rem);
+          font-size: clamp(2.5rem, 5vw, 4.5rem);
           line-height: 1.05;
           letter-spacing: -0.02em;
           color: #fff;
-          margin: 0 0 0.75rem;
-          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          margin: 0 0 0.6rem;
+          text-shadow: 0 4px 25px rgba(0, 0, 0, 0.6);
         }
 
         .hero-specs {
@@ -375,26 +486,14 @@ export default function MoviesIndex({
           align-items: center;
           gap: 0.75rem;
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           color: rgba(255, 255, 255, 0.75);
-          margin-bottom: 1rem;
+          margin-bottom: 1.5rem;
         }
 
         .spec-dot::before {
           content: "·";
           margin-right: 0.75rem;
-        }
-
-        .hero-desc {
-          font-size: 1.05rem;
-          line-height: 1.65;
-          color: rgba(255, 255, 255, 0.85);
-          max-width: 620px;
-          margin-bottom: 1.75rem;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
         }
 
         .btn-stream {
@@ -408,7 +507,7 @@ export default function MoviesIndex({
           font-weight: 600;
           background: var(--wobl-amber, #f59e0b);
           color: #000;
-          padding: 0.85rem 2rem;
+          padding: 0.85rem 2.2rem;
           border-radius: 40px;
           text-decoration: none;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
@@ -418,14 +517,14 @@ export default function MoviesIndex({
         .btn-stream:hover {
           transform: translateY(-2px);
           background: #fbbf24;
-          box-shadow: 0 14px 35px rgba(245, 158, 11, 0.25);
+          box-shadow: 0 14px 35px rgba(245, 158, 11, 0.3);
         }
 
         /* Hero Ticks Pagination */
         .hero-indicators {
           position: absolute;
-          bottom: 2rem;
-          right: 3.5rem;
+          bottom: 3.5rem;
+          right: 5rem;
           display: flex;
           gap: 0.4rem;
           z-index: 3;
@@ -434,7 +533,7 @@ export default function MoviesIndex({
         .indicator-tick {
           background: rgba(255, 255, 255, 0.2);
           border: none;
-          width: 28px;
+          width: 32px;
           height: 4px;
           border-radius: 2px;
           cursor: pointer;
@@ -468,7 +567,7 @@ export default function MoviesIndex({
         .editorial-rail {
           max-width: 1440px;
           margin: 0 auto;
-          padding: 3.5rem 3rem 1.5rem;
+          padding: 4rem 4rem 1.5rem;
         }
 
         .rail-container {
@@ -528,11 +627,11 @@ export default function MoviesIndex({
           gap: 1.5rem;
           overflow-x: auto;
           padding-bottom: 0.5rem;
-          scrollbar-width: none; /* Firefox */
+          scrollbar-width: none;
         }
 
         .rail-scroller::-webkit-scrollbar {
-          display: none; /* Safari & Chrome */
+          display: none;
         }
 
         .rail-card-slot {
@@ -540,6 +639,22 @@ export default function MoviesIndex({
         }
 
         @media (max-width: 1280px) {
+          .hero-marquee {
+            padding: 4rem 3rem;
+          }
+          .hero-nav-arrow.arrow-left {
+            left: 1.5rem;
+          }
+          .hero-nav-arrow.arrow-right {
+            right: 1.5rem;
+          }
+          .hero-indicators {
+            right: 3rem;
+          }
+          .editorial-rail {
+            padding-left: 3rem;
+            padding-right: 3rem;
+          }
           .rail-scroller {
             grid-template-columns: repeat(5, minmax(170px, 1fr));
           }
@@ -548,9 +663,11 @@ export default function MoviesIndex({
         @media (max-width: 1024px) {
           .hero-marquee {
             padding: 3rem 2rem;
+            height: 65vh;
           }
-          .hero-indicators {
-            right: 2rem;
+          .hero-nav-arrow {
+            width: 42px;
+            height: 42px;
           }
           .editorial-rail {
             padding-left: 2rem;
@@ -563,8 +680,11 @@ export default function MoviesIndex({
 
         @media (max-width: 768px) {
           .hero-marquee {
-            height: 60vh;
             padding: 2rem 1.5rem;
+            height: 55vh;
+          }
+          .hero-nav-arrow {
+            display: none;
           }
           .hero-indicators {
             display: none;
