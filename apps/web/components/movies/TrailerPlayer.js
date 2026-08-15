@@ -1,9 +1,14 @@
 // components/TrailerPlayer.js
-// Wobl — Premium cinematic trailer player.
-// The page owns the layout bounds; this component owns trailer behavior.
+// Wobl — Clean Premium Trailer Player
+//
+// Architecture:
+// 1. Preview state: one custom Wobl play button.
+// 2. Playing state: real YouTube iframe.
+// 3. No custom play button over the YouTube player.
+// 4. One close button in cinema mode.
+// 5. Trailer bounds are controlled by the parent page.
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect, useCallback } from "react";
 import { W, glassPanel } from "../shared/wobl-theme";
 
 const normalizeTrailers = (list = []) =>
@@ -14,16 +19,14 @@ const normalizeTrailers = (list = []) =>
           key: trailer,
           name: "Official Trailer",
           type: "Trailer",
-          published_at: null,
         };
       }
 
       if (trailer && typeof trailer === "object" && trailer.key) {
         return {
+          ...trailer,
           name: trailer.name || "Trailer",
           type: trailer.type || "Trailer",
-          published_at: trailer.published_at || null,
-          ...trailer,
         };
       }
 
@@ -31,11 +34,11 @@ const normalizeTrailers = (list = []) =>
     })
     .filter(Boolean);
 
-function PlayIcon({ size = 20 }) {
+function PlayIcon() {
   return (
     <svg
-      width={size}
-      height={size}
+      width="22"
+      height="22"
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden="true"
@@ -45,11 +48,11 @@ function PlayIcon({ size = 20 }) {
   );
 }
 
-function CloseIcon({ size = 19 }) {
+function CloseIcon() {
   return (
     <svg
-      width={size}
-      height={size}
+      width="18"
+      height="18"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -63,25 +66,11 @@ function CloseIcon({ size = 19 }) {
   );
 }
 
-function Loader() {
+function LoadingSpinner() {
   return (
-    <motion.span
-      aria-hidden="true"
-      animate={{ opacity: [0.35, 1, 0.35] }}
-      transition={{
-        duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
-      style={{
-        display: "block",
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: W.cream,
-        boxShadow: `0 0 22px ${W.cream}`,
-      }}
-    />
+    <span className="spinner" aria-hidden="true">
+      <span />
+    </span>
   );
 }
 
@@ -92,18 +81,21 @@ export default function TrailerPlayer({
   slug,
   backdropUrl,
 }) {
-  const initialTrailers = normalizeTrailers(trailersProp);
-
-  const [trailers, setTrailers] = useState(initialTrailers);
-  const [loading, setLoading] = useState(initialTrailers.length === 0);
-  const [selectedTrailer, setSelectedTrailer] = useState(
-    initialTrailers[0] || null,
+  const [trailers, setTrailers] = useState(() =>
+    normalizeTrailers(trailersProp),
   );
-  const [cinemaMode, setCinemaMode] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [retryKey, setRetryKey] = useState(0);
 
-  const hideTimer = useRef(null);
+  const [selectedTrailer, setSelectedTrailer] = useState(() => {
+    const normalized = normalizeTrailers(trailersProp);
+    return normalized[0] || null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    return normalizeTrailers(trailersProp).length === 0;
+  });
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState(false);
 
   const fetchTrailers = useCallback(async () => {
     if (!tmdbId && !slug) {
@@ -112,28 +104,32 @@ export default function TrailerPlayer({
     }
 
     setLoading(true);
+    setError(false);
 
     try {
       const query = new URLSearchParams({
         tmdb_id: tmdbId || "",
         slug: slug || "",
-      }).toString();
+      });
 
-      const response = await fetch(`/api/trailers?${query}`);
+      const response = await fetch(`/api/trailers?${query.toString()}`);
 
       if (!response.ok) {
         throw new Error(`Trailer request failed: ${response.status}`);
       }
 
       const data = await response.json();
-      const normalized = normalizeTrailers(data.trailers || []);
+
+      const normalized = normalizeTrailers(data?.trailers || []);
 
       setTrailers(normalized);
       setSelectedTrailer(normalized[0] || null);
-    } catch (error) {
-      console.error("Failed to fetch trailers:", error);
+    } catch (err) {
+      console.error("Failed to fetch trailers:", err);
+
       setTrailers([]);
       setSelectedTrailer(null);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -146,31 +142,38 @@ export default function TrailerPlayer({
       setTrailers(normalized);
       setSelectedTrailer(normalized[0]);
       setLoading(false);
+      setError(false);
       return;
     }
 
     fetchTrailers();
   }, [trailersProp, fetchTrailers]);
 
-  // Prevent the page underneath from scrolling during cinema mode.
+  // Selecting another trailer always returns to preview mode.
   useEffect(() => {
-    if (!cinemaMode) return undefined;
+    setIsPlaying(false);
+  }, [selectedTrailer?.key]);
+
+  // Prevent the page behind the cinema player from scrolling.
+  useEffect(() => {
+    if (!isPlaying) return;
 
     const previousOverflow = document.body.style.overflow;
+
     document.body.style.overflow = "hidden";
 
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [cinemaMode]);
+  }, [isPlaying]);
 
   // Escape closes cinema mode.
   useEffect(() => {
-    if (!cinemaMode) return undefined;
+    if (!isPlaying) return;
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        setCinemaMode(false);
+        setIsPlaying(false);
       }
     };
 
@@ -179,459 +182,470 @@ export default function TrailerPlayer({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [cinemaMode]);
+  }, [isPlaying]);
 
-  const resetHideTimer = useCallback(() => {
-    setControlsVisible(true);
+  const handlePlay = () => {
+    if (!selectedTrailer?.key) return;
 
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current);
-    }
-
-    hideTimer.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000);
-  }, []);
-
-  useEffect(() => {
-    if (!cinemaMode) return undefined;
-
-    resetHideTimer();
-
-    return () => {
-      if (hideTimer.current) {
-        clearTimeout(hideTimer.current);
-      }
-    };
-  }, [cinemaMode, resetHideTimer]);
-
-  const openCinema = () => {
-    if (!selectedTrailer) return;
-    setCinemaMode(true);
+    setIsPlaying(true);
   };
 
-  const retry = () => {
-    setRetryKey((value) => value + 1);
+  const handleClose = () => {
+    setIsPlaying(false);
   };
 
-  const thumbnailUrl = selectedTrailer
-    ? `https://img.youtube.com/vi/${selectedTrailer.key}/maxresdefault.jpg`
-    : backdropUrl;
+  /*
+   * ------------------------------------------------------------
+   * LOADING
+   * ------------------------------------------------------------
+   */
 
-  return (
-    <>
-      <div
-        className="wobl-trailer"
-        onMouseMove={cinemaMode ? resetHideTimer : undefined}
-      >
-        {/* Player stage */}
-        <div className="player-stage">
-          {loading ? (
+  if (loading) {
+    return (
+      <>
+        <div className="player-stage loading-stage">
+          {backdropUrl && (
             <div
-              className="loading-state"
+              className="loading-backdrop"
               style={{
-                backgroundImage: backdropUrl
-                  ? `linear-gradient(rgba(8,8,8,.32), rgba(8,8,8,.68)), url(${backdropUrl})`
-                  : undefined,
+                backgroundImage: `url(${backdropUrl})`,
               }}
-              aria-label={`Loading trailer for ${itemName}`}
-            >
-              <Loader />
-            </div>
-          ) : selectedTrailer ? (
-            <motion.button
-              type="button"
-              className="trailer-ready"
-              onClick={openCinema}
-              whileHover={{ scale: 1.008 }}
-              whileTap={{ scale: 0.992 }}
-              aria-label={`Watch trailer for ${itemName}`}
-              style={{
-                backgroundImage: `url(${thumbnailUrl})`,
-              }}
-            >
-              <div className="image-vignette" />
-
-              <div className="play-orb">
-                <motion.span
-                  animate={{ opacity: [0.7, 1, 0.7] }}
-                  transition={{
-                    duration: 2.4,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  <PlayIcon size={20} />
-                </motion.span>
-              </div>
-
-              <div className="trailer-label">
-                <span className="trailer-label-title">Watch trailer</span>
-                <span className="trailer-label-name">
-                  {selectedTrailer.name || "Official Trailer"}
-                </span>
-              </div>
-            </motion.button>
-          ) : backdropUrl ? (
-            <div
-              className="fallback-state"
-              style={{
-                backgroundImage: `linear-gradient(rgba(8,8,8,.35), rgba(8,8,8,.78)), url(${backdropUrl})`,
-              }}
-            >
-              <div className="fallback-label">
-                <span>Trailer not available</span>
-                <button type="button" onClick={retry} key={retryKey}>
-                  Try again
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="fallback-empty">
-              <span>Trailer not available</span>
-              <button type="button" onClick={retry} key={retryKey}>
-                Try again
-              </button>
-            </div>
+            />
           )}
+
+          <div className="loading-content">
+            <LoadingSpinner />
+            <span>Loading trailer</span>
+          </div>
         </div>
 
-        {/* Multiple trailer selector */}
-        {!loading && trailers.length > 1 && (
-          <div className="trailer-list">
-            <div className="trailer-list-label">Trailers</div>
+        <style jsx>{`
+          .player-stage {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            border-radius: 16px;
+            background: #070707;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
 
-            <div className="trailer-list-scroll">
+          .loading-backdrop {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            filter: blur(12px);
+            transform: scale(1.05);
+            opacity: 0.2;
+          }
+
+          .loading-content {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            font-family: var(--wobl-mono, monospace);
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+
+          .spinner {
+            width: 18px;
+            height: 18px;
+            display: block;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-top-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+
+          .spinner span {
+            display: block;
+          }
+
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * NO TRAILER
+   * ------------------------------------------------------------
+   */
+
+  if (!selectedTrailer) {
+    return (
+      <>
+        <div
+          className="player-stage unavailable-stage"
+          style={
+            backdropUrl
+              ? {
+                  backgroundImage: `
+                    linear-gradient(
+                      rgba(5,5,5,0.35),
+                      rgba(5,5,5,0.82)
+                    ),
+                    url(${backdropUrl})
+                  `,
+                }
+              : undefined
+          }
+        >
+          <div className="unavailable-content">
+            <span>Trailer unavailable</span>
+
+            {error && (
+              <button type="button" onClick={fetchTrailers}>
+                Try again
+              </button>
+            )}
+          </div>
+        </div>
+
+        <style jsx>{`
+          .player-stage {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            border-radius: 16px;
+            background-color: #070707;
+            background-size: cover;
+            background-position: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+
+          .unavailable-content {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: rgba(255, 255, 255, 0.55);
+            font-family: var(--wobl-mono, monospace);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+
+          .unavailable-content button {
+            border: 0;
+            background: transparent;
+            color: var(--wobl-amber, #f59e0b);
+            font: inherit;
+            cursor: pointer;
+            text-decoration: underline;
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * PREVIEW
+   * ------------------------------------------------------------
+   *
+   * IMPORTANT:
+   * There is ONLY ONE play button here.
+   *
+   * The YouTube iframe does not exist yet.
+   */
+
+  if (!isPlaying) {
+    const thumbnail = `https://img.youtube.com/vi/${selectedTrailer.key}/maxresdefault.jpg`;
+
+    return (
+      <>
+        <div className="player-container">
+          <button
+            type="button"
+            className="preview"
+            onClick={handlePlay}
+            aria-label={`Watch trailer for ${itemName}`}
+            style={{
+              backgroundImage: `
+                linear-gradient(
+                  to top,
+                  rgba(0,0,0,0.78),
+                  rgba(0,0,0,0.05) 65%
+                ),
+                url(${thumbnail})
+              `,
+            }}
+          >
+            <div className="preview-center">
+              <span className="play-button">
+                <PlayIcon />
+              </span>
+            </div>
+
+            <div className="preview-information">
+              <span className="watch-label">Watch trailer</span>
+
+              <span className="trailer-name">
+                {selectedTrailer.name || "Official Trailer"}
+              </span>
+            </div>
+          </button>
+
+          {trailers.length > 1 && (
+            <div className="trailer-selector">
               {trailers.map((trailer) => {
-                const selected = trailer.key === selectedTrailer?.key;
+                const active = trailer.key === selectedTrailer.key;
 
                 return (
                   <button
                     key={trailer.key}
                     type="button"
-                    className={`trailer-option ${
-                      selected ? "is-selected" : ""
+                    className={`trailer-item ${
+                      active ? "trailer-item-active" : ""
                     }`}
                     onClick={() => setSelectedTrailer(trailer)}
-                    aria-pressed={selected}
                   >
                     <span
-                      className="trailer-option-image"
+                      className="trailer-thumb"
                       style={{
                         backgroundImage: `url(https://img.youtube.com/vi/${trailer.key}/mqdefault.jpg)`,
                       }}
                     />
-                    <span className="trailer-option-copy">
-                      <span>{trailer.name || trailer.type || "Trailer"}</span>
+
+                    <span className="trailer-item-name">
+                      {trailer.name || trailer.type || "Trailer"}
                     </span>
                   </button>
                 );
               })}
             </div>
+          )}
+        </div>
+
+        <style jsx>{`
+          .player-container {
+            width: 100%;
+          }
+
+          .preview {
+            position: relative;
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            background-color: #050505;
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+            box-shadow:
+              0 25px 60px rgba(0, 0, 0, 0.45),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+          }
+
+          .preview::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0);
+            transition: background 180ms ease;
+            pointer-events: none;
+          }
+
+          .preview:hover::after {
+            background: rgba(0, 0, 0, 0.08);
+          }
+
+          .preview-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+          }
+
+          .play-button {
+            width: 66px;
+            height: 66px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-left: 2px;
+            border-radius: 50%;
+            color: var(--wobl-cream, #fff);
+            background: rgba(18, 18, 18, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow:
+              0 15px 40px rgba(0, 0, 0, 0.38),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            transition:
+              transform 180ms ease,
+              background 180ms ease;
+          }
+
+          .preview:hover .play-button {
+            transform: scale(1.06);
+            background: rgba(25, 25, 25, 0.55);
+          }
+
+          .preview-information {
+            position: absolute;
+            z-index: 3;
+            left: 22px;
+            right: 22px;
+            bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            text-align: left;
+          }
+
+          .watch-label {
+            color: var(--wobl-cream, #fff);
+            font-family: var(--wobl-display, sans-serif);
+            font-size: 0.95rem;
+            font-weight: 600;
+          }
+
+          .trailer-name {
+            color: rgba(255, 255, 255, 0.58);
+            font-family: var(--wobl-mono, monospace);
+            font-size: 0.68rem;
+          }
+
+          .trailer-selector {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            overflow-x: auto;
+            padding: 2px 2px 6px;
+          }
+
+          .trailer-item {
+            flex: 0 0 150px;
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.025);
+            color: rgba(255, 255, 255, 0.65);
+            cursor: pointer;
+            text-align: left;
+            transition:
+              border-color 160ms ease,
+              transform 160ms ease;
+          }
+
+          .trailer-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+          }
+
+          .trailer-item-active {
+            border-color: rgba(255, 255, 255, 0.32);
+          }
+
+          .trailer-thumb {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-position: center;
+            background-size: cover;
+          }
+
+          .trailer-item-name {
+            display: block;
+            padding: 7px 9px 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: var(--wobl-mono, monospace);
+            font-size: 0.62rem;
+          }
+
+          @media (max-width: 640px) {
+            .preview {
+              border-radius: 12px;
+            }
+
+            .play-button {
+              width: 58px;
+              height: 58px;
+            }
+
+            .preview-information {
+              left: 16px;
+              right: 16px;
+              bottom: 16px;
+            }
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  /*
+   * ------------------------------------------------------------
+   * ACTUAL PLAYER
+   * ------------------------------------------------------------
+   *
+   * The custom play button is GONE.
+   *
+   * This is now just the real YouTube player.
+   */
+
+  return (
+    <>
+      <div className="cinema-overlay">
+        <div className="cinema-content">
+          <div className="cinema-header">
+            <div className="cinema-title">
+              <span>{itemName}</span>
+              <small>{selectedTrailer.name || "Trailer"}</small>
+            </div>
+
+            <button
+              type="button"
+              className="close-button"
+              onClick={handleClose}
+              aria-label="Close trailer"
+              style={glassPanel}
+            >
+              <CloseIcon />
+            </button>
           </div>
-        )}
+
+          <div className="video-frame">
+            <iframe
+              key={selectedTrailer.key}
+              src={`https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&rel=0&modestbranding=1`}
+              title={`${selectedTrailer.name || "Trailer"} — ${itemName}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Cinema mode */}
-      <AnimatePresence>
-        {cinemaMode && selectedTrailer && (
-          <motion.div
-            className="cinema-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            onMouseMove={resetHideTimer}
-          >
-            <motion.div
-              className="cinema-frame"
-              initial={{ scale: 0.94, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.97, opacity: 0 }}
-              transition={{
-                duration: 0.34,
-                ease: [0.2, 0.8, 0.2, 1],
-              }}
-            >
-              <iframe
-                key={selectedTrailer.key}
-                title={`${selectedTrailer.name || "Trailer"} — ${itemName}`}
-                src={`https://www.youtube.com/embed/${selectedTrailer.key}?autoplay=1&rel=0&modestbranding=1`}
-                className="youtube-frame"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-
-              <AnimatePresence>
-                {controlsVisible && (
-                  <motion.button
-                    type="button"
-                    className="close-button"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    onClick={() => setCinemaMode(false)}
-                    aria-label="Close trailer"
-                    style={{
-                      ...glassPanel,
-                      border: `1px solid ${W.surfaceBorder}`,
-                    }}
-                  >
-                    <CloseIcon />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <style jsx>{`
-        .wobl-trailer {
-          width: 100%;
-        }
-
-        .player-stage {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 16 / 9;
-          overflow: hidden;
-          border-radius: 16px;
-          background: #050505;
-          border: 1px solid rgba(255, 255, 255, 0.11);
-          box-shadow:
-            0 28px 70px rgba(0, 0, 0, 0.5),
-            inset 0 1px 0 rgba(255, 255, 255, 0.06);
-        }
-
-        .loading-state,
-        .fallback-state,
-        .fallback-empty,
-        .trailer-ready {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-        }
-
-        .loading-state {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background-color: #0b0b0b;
-          background-position: center;
-          background-size: cover;
-        }
-
-        .trailer-ready {
-          display: block;
-          padding: 0;
-          border: 0;
-          cursor: pointer;
-          background-color: #0a0a0a;
-          background-position: center;
-          background-size: cover;
-          background-repeat: no-repeat;
-          text-align: left;
-          color: inherit;
-        }
-
-        .image-vignette {
-          position: absolute;
-          inset: 0;
-          background:
-            radial-gradient(
-              circle at center,
-              transparent 28%,
-              rgba(0, 0, 0, 0.18) 65%,
-              rgba(0, 0, 0, 0.5) 100%
-            ),
-            linear-gradient(
-              to top,
-              rgba(5, 5, 5, 0.72),
-              rgba(5, 5, 5, 0) 42%
-            );
-          transition: background 220ms ease;
-        }
-
-        .trailer-ready:hover .image-vignette {
-          background:
-            radial-gradient(
-              circle at center,
-              transparent 30%,
-              rgba(0, 0, 0, 0.16) 68%,
-              rgba(0, 0, 0, 0.45) 100%
-            ),
-            linear-gradient(
-              to top,
-              rgba(5, 5, 5, 0.72),
-              rgba(5, 5, 5, 0) 42%
-            );
-        }
-
-        .play-orb {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 62px;
-          height: 62px;
-          transform: translate(-50%, -50%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          color: ${W.cream};
-          background: rgba(18, 18, 18, 0.34);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          box-shadow:
-            0 14px 38px rgba(0, 0, 0, 0.32),
-            inset 0 1px 0 rgba(255, 255, 255, 0.16);
-          backdrop-filter: blur(18px) saturate(1.25);
-          -webkit-backdrop-filter: blur(18px) saturate(1.25);
-          transition:
-            transform 220ms ease,
-            background 220ms ease,
-            border-color 220ms ease;
-        }
-
-        .trailer-ready:hover .play-orb {
-          transform: translate(-50%, -50%) scale(1.05);
-          background: rgba(24, 24, 24, 0.44);
-          border-color: rgba(255, 255, 255, 0.28);
-        }
-
-        .trailer-label {
-          position: absolute;
-          left: 22px;
-          bottom: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          max-width: calc(100% - 44px);
-        }
-
-        .trailer-label-title {
-          color: ${W.cream};
-          font-family: ${W.bodyFont};
-          font-size: 0.9rem;
-          font-weight: 650;
-        }
-
-        .trailer-label-name {
-          color: ${W.creamDim};
-          font-family: ${W.monoFont};
-          font-size: 0.68rem;
-          letter-spacing: 0.03em;
-        }
-
-        .fallback-state,
-        .fallback-empty {
-          display: flex;
-          align-items: flex-end;
-          justify-content: flex-start;
-          background-color: #0a0a0a;
-          background-position: center;
-          background-size: cover;
-        }
-
-        .fallback-empty {
-          align-items: center;
-          justify-content: center;
-        }
-
-        .fallback-label {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          margin: 0 18px 18px;
-          padding: 8px 10px 8px 13px;
-          border: 1px solid rgba(255, 255, 255, 0.11);
-          border-radius: 999px;
-          color: rgba(255, 255, 255, 0.72);
-          background: rgba(15, 15, 15, 0.34);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          font-family: ${W.monoFont};
-          font-size: 0.66rem;
-        }
-
-        .fallback-label button,
-        .fallback-empty button {
-          border: 0;
-          background: transparent;
-          color: ${W.cream};
-          cursor: pointer;
-          font: inherit;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
-
-        .fallback-empty {
-          flex-direction: column;
-          gap: 10px;
-          color: rgba(255, 255, 255, 0.55);
-          font-family: ${W.monoFont};
-          font-size: 0.72rem;
-        }
-
-        .trailer-list {
-          margin-top: 1rem;
-        }
-
-        .trailer-list-label {
-          margin-bottom: 0.55rem;
-          color: rgba(255, 255, 255, 0.42);
-          font-family: ${W.monoFont};
-          font-size: 0.65rem;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-        }
-
-        .trailer-list-scroll {
-          display: flex;
-          gap: 0.65rem;
-          overflow-x: auto;
-          padding: 2px 2px 6px;
-          scrollbar-width: thin;
-        }
-
-        .trailer-option {
-          position: relative;
-          flex: 0 0 145px;
-          padding: 0;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 10px;
-          overflow: hidden;
-          background: rgba(255, 255, 255, 0.025);
-          cursor: pointer;
-          text-align: left;
-          color: ${W.cream};
-        }
-
-        .trailer-option.is-selected {
-          border-color: rgba(255, 255, 255, 0.28);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-        }
-
-        .trailer-option-image {
-          display: block;
-          width: 100%;
-          aspect-ratio: 16 / 9;
-          background-position: center;
-          background-size: cover;
-        }
-
-        .trailer-option-copy {
-          display: block;
-          padding: 7px 9px 8px;
-          color: rgba(255, 255, 255, 0.68);
-          font-family: ${W.monoFont};
-          font-size: 0.62rem;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
         .cinema-overlay {
           position: fixed;
           inset: 0;
@@ -639,25 +653,75 @@ export default function TrailerPlayer({
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 4vh 4vw;
-          background: rgba(4, 4, 4, 0.9);
+          padding: 40px;
+          background: rgba(4, 4, 4, 0.94);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
         }
 
-        .cinema-frame {
+        .cinema-content {
+          width: min(1180px, 100%);
+        }
+
+        .cinema-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 12px;
+        }
+
+        .cinema-title {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+          color: var(--wobl-cream, #fff);
+          font-family: var(--wobl-display, sans-serif);
+          font-size: 0.95rem;
+        }
+
+        .cinema-title span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .cinema-title small {
+          color: rgba(255, 255, 255, 0.45);
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.65rem;
+        }
+
+        .close-button {
+          flex: 0 0 auto;
+          width: 42px;
+          height: 42px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 50%;
+          color: var(--wobl-cream, #fff);
+          cursor: pointer;
+        }
+
+        .close-button:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .video-frame {
           position: relative;
-          width: min(1180px, 92vw);
+          width: 100%;
           aspect-ratio: 16 / 9;
           overflow: hidden;
           border-radius: 14px;
           background: #000;
-          box-shadow:
-            0 45px 100px rgba(0, 0, 0, 0.72),
-            0 0 0 1px rgba(255, 255, 255, 0.1);
+          box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
         }
 
-        .youtube-frame {
+        .video-frame iframe {
           position: absolute;
           inset: 0;
           width: 100%;
@@ -665,58 +729,45 @@ export default function TrailerPlayer({
           border: 0;
         }
 
-        .close-button {
-          position: absolute;
-          top: max(14px, env(safe-area-inset-top));
-          right: max(14px, env(safe-area-inset-right));
-          width: 42px;
-          height: 42px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          border-radius: 50%;
-          color: ${W.cream};
-          cursor: pointer;
-          z-index: 2;
-        }
-
         @media (max-width: 640px) {
-          .player-stage {
-            border-radius: 12px;
-          }
-
-          .play-orb {
-            width: 58px;
-            height: 58px;
-          }
-
-          .trailer-label {
-            left: 16px;
-            bottom: 16px;
-          }
-
           .cinema-overlay {
             padding: 0;
             background: #000;
           }
 
-          .cinema-frame {
-            width: 100vw;
-            height: 100dvh;
-            aspect-ratio: unset;
-            border-radius: 0;
-            box-shadow: none;
-          }
-
-          .youtube-frame {
+          .cinema-content {
             width: 100%;
             height: 100%;
           }
 
+          .cinema-header {
+            position: absolute;
+            z-index: 3;
+            top: max(12px, env(safe-area-inset-top));
+            left: 14px;
+            right: 14px;
+          }
+
+          .cinema-title {
+            display: none;
+          }
+
           .close-button {
-            top: max(14px, env(safe-area-inset-top));
-            right: max(14px, env(safe-area-inset-right));
+            margin-left: auto;
+            width: 40px;
+            height: 40px;
+          }
+
+          .video-frame {
+            width: 100vw;
+            height: 100dvh;
+            aspect-ratio: auto;
+            border-radius: 0;
+          }
+
+          .video-frame iframe {
+            width: 100%;
+            height: 100%;
           }
         }
       `}</style>
