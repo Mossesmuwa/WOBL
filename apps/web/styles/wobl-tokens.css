@@ -17,7 +17,7 @@
   --wobl-amber: #f2a65a;
 
   /* Typography */
-  --wobl-display: "Fraunces", Georgia, serif;
+  --wobl-display: "Bricolage Grotesque", -apple-system, sans-serif;
   --wobl-body: "Inter", -apple-system, sans-serif;
   --wobl-mono: "JetBrains Mono", monospace;
 }

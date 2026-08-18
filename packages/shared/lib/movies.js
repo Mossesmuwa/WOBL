@@ -69,6 +69,7 @@ export async function getAllGenres(limit = 500) {
   }
 }
 
+// ── Items by genre ────────────────────────────────────────
 export async function getByGenre(genreName, opts = {}) {
   if (!supabase || !genreName) return [];
   const { limit = 24 } = opts;
@@ -86,5 +87,38 @@ export async function getByGenre(genreName, opts = {}) {
   } catch (err) {
     console.error("[getByGenre] failed:", err.message);
     return [];
+  }
+}
+
+// ── Random pick, filtered by genre/rating ────────────────
+// Real "decide for me" query — pulls a quality pool (popularity-sorted,
+// capped) then picks one at random client-side. Supabase JS doesn't
+// expose ORDER BY random() cleanly, so true server-side randomness
+// would need a raw SQL function — this is the honest, working v1.
+export async function getRandomPick(opts = {}) {
+  if (!supabase) return null;
+  const { genre = null, minRating = 6.5, poolSize = 30 } = opts;
+  try {
+    let q = supabase
+      .from("items")
+      .select("*")
+      .eq("approved", true)
+      .eq("category_id", "movies")
+      .not("image", "is", null)
+      .gte("rating", minRating);
+
+    if (genre) q = q.ilike("genre", `%${genre}%`);
+
+    q = q
+      .order("popularity", { ascending: false, nullsFirst: false })
+      .limit(poolSize);
+
+    const { data } = await q;
+    if (!data || data.length === 0) return null;
+
+    return data[Math.floor(Math.random() * data.length)];
+  } catch (err) {
+    console.error("[getRandomPick] failed:", err.message);
+    return null;
   }
 }

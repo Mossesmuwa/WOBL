@@ -16,7 +16,7 @@ export const W = {
   marquee: "#D9713C",
   amber: "#F2A65A",
 
-  displayFont: '"Fraunces", Georgia, serif',
+  displayFont: '"Bricolage Grotesque", -apple-system, sans-serif',
   bodyFont: '-apple-system, BlinkMacSystemFont, "Inter", sans-serif',
   monoFont: '"JetBrains Mono", monospace',
 

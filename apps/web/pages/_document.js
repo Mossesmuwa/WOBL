@@ -1,6 +1,6 @@
 // pages/_document.js
 // Wobl — custom document. Preloads the actual typefaces the design
-// depends on (Fraunces, Inter, JetBrains Mono) — without this, every
+// depends on (Bricolage Grotesque, Inter, JetBrains Mono) — without this, every
 // component referencing var(--wobl-display) etc. silently falls back to
 // system fonts and the typographic identity never actually renders.
 
@@ -17,7 +17,7 @@ export default function Document() {
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet"
         />
         <meta name="theme-color" content="#0A0908" />
