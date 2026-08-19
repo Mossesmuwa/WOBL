@@ -5,25 +5,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
+import { Heart } from "lucide-react";
 import { useSupabase } from "shared/lib/SupabaseContext";
 import { addFavorite, removeFavorite, getFavorites } from "shared/lib/items";
 import { useToast } from "../shared/Toast";
 import { W, glassPanel } from "../shared/wobl-theme";
-
-function HeartIcon({ filled, size = 18 }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  );
-}
 
 export default function SaveButton({ item, size = "default" }) {
   const { user } = useSupabase();
@@ -85,6 +71,7 @@ export default function SaveButton({ item, size = "default" }) {
       aria-pressed={saved}
       style={{
         ...glassPanel,
+        background: saved ? "rgba(217,113,60,0.25)" : "rgba(10,9,8,0.55)",
         width: isSmall ? 32 : 40,
         height: isSmall ? 32 : 40,
         borderRadius: "50%",
@@ -96,7 +83,11 @@ export default function SaveButton({ item, size = "default" }) {
         opacity: checking ? 0.5 : 1,
       }}
     >
-      <HeartIcon filled={saved} size={isSmall ? 14 : 18} />
+      <Heart
+        size={isSmall ? 16 : 18}
+        fill={saved ? "currentColor" : "none"}
+        strokeWidth={2}
+      />
     </motion.button>
   );
 }
