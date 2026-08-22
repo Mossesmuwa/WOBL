@@ -1,10 +1,11 @@
 // pages/movies/[slug]/watch.js
-// Wobl — Premium Watch Page
-// Full-screen video player with multi-server selection
+// Wobl — Premium Watch Page (Enhanced)
+// Full-screen player with multi-server selection, smart episode selector for series
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import { getBySlug } from "shared/lib/items";
 import { getAllProviders } from "shared/lib/streamProviders";
 import MovieSEO from "../../../components/movies/MovieSEO";
@@ -36,8 +37,44 @@ export default function WatchPage({ item }) {
   const [error, setError] = useState(null);
   const [season, setSeason] = useState(1);
   const [episode, setEpisode] = useState(1);
+  const [watchTime, setWatchTime] = useState(0);
+  const [showEpisodeSelector, setShowEpisodeSelector] = useState(false);
 
   const providers = getAllProviders();
+  const isTV = item?.type === "tv";
+
+  // Max episodes per season (for UI - servers handle actual episodes)
+  const maxEpisodesPerSeason = 20;
+  const maxSeasons = 15;
+
+  // Save watch time to localStorage
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (item?.slug) {
+        try {
+          localStorage.setItem(
+            `wobl_watch_${item.slug}`,
+            JSON.stringify({ season, episode, watchTime }),
+          );
+        } catch {}
+      }
+    }, 10000); // Save every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [item?.slug, season, episode, watchTime]);
+
+  // Load last watched position
+  useEffect(() => {
+    if (!item?.slug) return;
+    try {
+      const saved = localStorage.getItem(`wobl_watch_${item.slug}`);
+      if (saved) {
+        const { season: lastSeason, episode: lastEpisode } = JSON.parse(saved);
+        setSeason(lastSeason);
+        setEpisode(lastEpisode);
+      }
+    } catch {}
+  }, [item?.slug]);
 
   // Fetch stream URL when provider, season, or episode changes
   useEffect(() => {
@@ -56,7 +93,8 @@ export default function WatchPage({ item }) {
         query.set("tmdb_id", String(item.source_id));
         query.set("provider", selectedProvider);
         query.set("type", item.type || "movie");
-        if (item.type === "tv") {
+
+        if (isTV) {
           query.set("season", String(season));
           query.set("episode", String(episode));
         }
@@ -79,7 +117,25 @@ export default function WatchPage({ item }) {
     };
 
     fetchStream();
-  }, [item, selectedProvider, season, episode]);
+  }, [item, selectedProvider, season, episode, isTV]);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === "ArrowRight" && isTV && episode < maxEpisodesPerSeason) {
+        setEpisode((prev) => prev + 1);
+      } else if (e.key === "ArrowLeft" && isTV && episode > 1) {
+        setEpisode((prev) => prev - 1);
+      } else if (e.key === "ArrowUp" && isTV && season < maxSeasons) {
+        setSeason((prev) => prev + 1);
+      } else if (e.key === "ArrowDown" && isTV && season > 1) {
+        setSeason((prev) => prev - 1);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [isTV, season, episode]);
 
   if (router.isFallback || !item) {
     return (
@@ -114,15 +170,18 @@ export default function WatchPage({ item }) {
     );
   }
 
-  const isTV = item.type === "tv";
-
   return (
     <>
       <MovieSEO item={item} />
 
       <div className="watch-page" style={{ background: W.bg }}>
         {/* Header */}
-        <div className="watch-header">
+        <motion.div
+          className="watch-header"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
           <div className="header-inner">
             <Link href={`/movies/${item.slug}`} className="back-link">
               <svg
@@ -138,28 +197,46 @@ export default function WatchPage({ item }) {
               <span>Back to {item.name}</span>
             </Link>
 
-            <div className="header-title">
+            <div className="header-info">
               <h1>{item.name}</h1>
               {isTV && <span className="badge">TV Series</span>}
+              {!isTV && <span className="badge">Movie</span>}
             </div>
+
+            {item.short_desc && (
+              <p className="header-desc">{item.short_desc}</p>
+            )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Player Container */}
-        <div className="player-container">
+        <motion.div
+          className="player-container"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
           <div className="player-wrapper">
             {loading ? (
               <div className="player-loading">
-                <div className="spinner" />
+                <motion.div
+                  className="spinner"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
                 <span>Loading stream...</span>
               </div>
             ) : error ? (
               <div className="player-error">
                 <span className="error-icon">⚠</span>
                 <p>{error}</p>
-                <button onClick={() => setSelectedProvider("cinesrc")}>
+                <motion.button
+                  onClick={() => setSelectedProvider("cinesrc")}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
                   Try Different Server
-                </button>
+                </motion.button>
               </div>
             ) : streamUrl ? (
               <iframe
@@ -167,27 +244,35 @@ export default function WatchPage({ item }) {
                 className="player-iframe"
                 allowFullScreen
                 allow="autoplay; fullscreen; picture-in-picture"
+                key={`${selectedProvider}-${season}-${episode}`}
               />
             ) : null}
           </div>
-        </div>
+        </motion.div>
 
         {/* Server Selector */}
-        <div className="servers-section">
+        <motion.div
+          className="servers-section"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
           <div className="servers-inner">
             <div className="servers-label">
-              <span className="label-text">Select Server</span>
+              <span className="label-text">Select Streaming Server</span>
             </div>
 
             <div className="servers-grid">
               {providers.map((provider) => (
-                <button
+                <motion.button
                   key={provider.id}
                   className={`server-button ${
                     selectedProvider === provider.id ? "active" : ""
                   }`}
                   onClick={() => setSelectedProvider(provider.id)}
                   disabled={loading}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <div className="server-name">{provider.name}</div>
                   {provider.features.length > 0 && (
@@ -199,45 +284,144 @@ export default function WatchPage({ item }) {
                       ))}
                     </div>
                   )}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* TV Controls */}
+        {/* TV Series Controls */}
         {isTV && (
-          <div className="episode-controls">
-            <div className="controls-inner">
-              <div className="control-group">
-                <label>Season</label>
-                <select
-                  value={season}
-                  onChange={(e) => setSeason(parseInt(e.target.value))}
+          <motion.div
+            className="episode-section"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+          >
+            <div className="episode-inner">
+              <div className="episode-header">
+                <span className="label-text">Episodes</span>
+                <button
+                  className="toggle-selector"
+                  onClick={() => setShowEpisodeSelector(!showEpisodeSelector)}
                 >
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((s) => (
-                    <option key={s} value={s}>
-                      Season {s}
-                    </option>
-                  ))}
-                </select>
+                  Season {season}, Episode {episode}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d={
+                        showEpisodeSelector ? "M18 15l-6-6-6 6" : "M6 9l6 6 6-6"
+                      }
+                    />
+                  </svg>
+                </button>
               </div>
 
-              <div className="control-group">
-                <label>Episode</label>
-                <select
-                  value={episode}
-                  onChange={(e) => setEpisode(parseInt(e.target.value))}
+              <AnimatePresence>
+                {showEpisodeSelector && (
+                  <motion.div
+                    className="selector-panel"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="selector-controls">
+                      <div className="control-group">
+                        <label>Season</label>
+                        <div className="select-wrapper">
+                          <select
+                            value={season}
+                            onChange={(e) => {
+                              setSeason(parseInt(e.target.value));
+                              setEpisode(1);
+                            }}
+                          >
+                            {Array.from(
+                              { length: maxSeasons },
+                              (_, i) => i + 1,
+                            ).map((s) => (
+                              <option key={s} value={s}>
+                                Season {s}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="control-group">
+                        <label>Episode</label>
+                        <div className="select-wrapper">
+                          <select
+                            value={episode}
+                            onChange={(e) =>
+                              setEpisode(parseInt(e.target.value))
+                            }
+                          >
+                            {Array.from(
+                              { length: maxEpisodesPerSeason },
+                              (_, i) => i + 1,
+                            ).map((e) => (
+                              <option key={e} value={e}>
+                                Episode {e}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <button
+                        className="nav-button prev"
+                        onClick={() => {
+                          if (episode > 1) setEpisode(episode - 1);
+                          else if (season > 1) {
+                            setSeason(season - 1);
+                            setEpisode(maxEpisodesPerSeason);
+                          }
+                        }}
+                      >
+                        ← Prev
+                      </button>
+
+                      <button
+                        className="nav-button next"
+                        onClick={() => {
+                          if (episode < maxEpisodesPerSeason)
+                            setEpisode(episode + 1);
+                          else if (season < maxSeasons) {
+                            setSeason(season + 1);
+                            setEpisode(1);
+                          }
+                        }}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="keyboard-hint">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
                 >
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((e) => (
-                    <option key={e} value={e}>
-                      Episode {e}
-                    </option>
-                  ))}
-                </select>
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span>Use arrow keys to navigate</span>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -246,12 +430,12 @@ export default function WatchPage({ item }) {
           min-height: 100vh;
           display: flex;
           flex-direction: column;
-          padding: 2rem;
+          padding: 1.5rem;
         }
 
+        /* Header */
         .watch-header {
           margin-bottom: 2rem;
-          animation: slideDown 0.5s ease;
         }
 
         .header-inner {
@@ -278,16 +462,17 @@ export default function WatchPage({ item }) {
           opacity: 0.8;
         }
 
-        .header-title {
+        .header-info {
           display: flex;
           align-items: center;
           gap: 1rem;
+          margin-bottom: 1rem;
         }
 
-        .header-title h1 {
+        .header-info h1 {
           margin: 0;
           font-family: var(--wobl-display, sans-serif);
-          font-size: clamp(2rem, 4vw, 3rem);
+          font-size: clamp(2rem, 5vw, 3rem);
           color: var(--wobl-cream, #fff);
           font-weight: 600;
           letter-spacing: -0.02em;
@@ -305,13 +490,19 @@ export default function WatchPage({ item }) {
           letter-spacing: 0.08em;
         }
 
-        /* Player Container */
+        .header-desc {
+          margin: 0;
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 0.95rem;
+          max-width: 600px;
+        }
+
+        /* Player */
         .player-container {
           flex: 1;
           max-width: 1260px;
           width: 100%;
           margin: 0 auto 2rem;
-          animation: fadeIn 0.6s ease 0.1s both;
         }
 
         .player-wrapper {
@@ -345,13 +536,6 @@ export default function WatchPage({ item }) {
           border: 2px solid rgba(255, 255, 255, 0.15);
           border-top-color: var(--wobl-amber, #f59e0b);
           border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
         }
 
         .player-error {
@@ -395,12 +579,11 @@ export default function WatchPage({ item }) {
           border: none;
         }
 
-        /* Servers Section */
+        /* Servers */
         .servers-section {
           max-width: 1260px;
           width: 100%;
-          margin: 0 auto 3rem;
-          animation: fadeIn 0.6s ease 0.2s both;
+          margin: 0 auto 2rem;
         }
 
         .servers-inner {
@@ -442,12 +625,12 @@ export default function WatchPage({ item }) {
           display: flex;
           flex-direction: column;
           gap: 0.6rem;
+          font-family: var(--wobl-display, sans-serif);
         }
 
         .server-button:hover:not(:disabled) {
           border-color: rgba(255, 255, 255, 0.2);
           background: rgba(255, 255, 255, 0.05);
-          transform: translateY(-2px);
         }
 
         .server-button.active {
@@ -462,7 +645,6 @@ export default function WatchPage({ item }) {
         }
 
         .server-name {
-          font-family: var(--wobl-display, sans-serif);
           font-size: 1.1rem;
           font-weight: 600;
           letter-spacing: -0.01em;
@@ -484,16 +666,58 @@ export default function WatchPage({ item }) {
         }
 
         /* TV Controls */
-        .episode-controls {
+        .episode-section {
           max-width: 1260px;
           width: 100%;
-          margin: 0 auto 2rem;
-          animation: fadeIn 0.6s ease 0.3s both;
+          margin: 0 auto;
         }
 
-        .controls-inner {
+        .episode-inner {
           display: flex;
-          gap: 1.5rem;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .episode-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .toggle-selector {
+          padding: 0.7rem 1.2rem;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.02);
+          color: var(--wobl-cream, #fff);
+          cursor: pointer;
+          font-family: var(--wobl-display, sans-serif);
+          font-size: 0.95rem;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          transition: all 0.2s ease;
+        }
+
+        .toggle-selector:hover {
+          border-color: var(--wobl-amber, #f59e0b);
+          background: rgba(245, 158, 11, 0.08);
+        }
+
+        .selector-panel {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px;
+          background: rgba(255, 255, 255, 0.02);
+          padding: 1.5rem;
+          backdrop-filter: blur(10px);
+        }
+
+        .selector-controls {
+          display: flex;
+          gap: 1rem;
+          flex-wrap: wrap;
+          align-items: flex-end;
         }
 
         .control-group {
@@ -510,6 +734,10 @@ export default function WatchPage({ item }) {
           color: var(--wobl-amber, #f59e0b);
         }
 
+        .select-wrapper {
+          position: relative;
+        }
+
         .control-group select {
           padding: 0.6rem 0.9rem;
           border: 1px solid rgba(255, 255, 255, 0.08);
@@ -520,78 +748,86 @@ export default function WatchPage({ item }) {
           font-size: 0.95rem;
           cursor: pointer;
           transition: all 0.2s ease;
+          appearance: none;
+          padding-right: 2rem;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23f59e0b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.6rem center;
         }
 
         .control-group select:hover {
           border-color: rgba(255, 255, 255, 0.15);
-          background: rgba(255, 255, 255, 0.06);
+          background-color: rgba(255, 255, 255, 0.06);
         }
 
         .control-group select:focus {
           outline: none;
           border-color: var(--wobl-amber, #f59e0b);
-          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
         }
 
-        /* Animations */
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+        .nav-button {
+          padding: 0.6rem 1.2rem;
+          border: 1px solid rgba(245, 158, 11, 0.3);
+          background: transparent;
+          color: var(--wobl-amber, #f59e0b);
+          border-radius: 6px;
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
 
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
+        .nav-button:hover {
+          background: rgba(245, 158, 11, 0.1);
+          border-color: var(--wobl-amber, #f59e0b);
+        }
+
+        .keyboard-hint {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.4);
+          font-family: var(--wobl-mono, monospace);
         }
 
         /* Responsive */
         @media (max-width: 960px) {
           .watch-page {
-            padding: 1.5rem;
+            padding: 1rem;
           }
 
-          .header-title h1 {
-            font-size: clamp(1.5rem, 5vw, 2.2rem);
+          .header-info h1 {
+            font-size: clamp(1.5rem, 4vw, 2.2rem);
           }
 
           .servers-grid {
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
           }
         }
 
         @media (max-width: 640px) {
           .watch-page {
-            padding: 1rem;
+            padding: 0.75rem;
           }
 
           .watch-header {
             margin-bottom: 1.5rem;
           }
 
-          .back-link {
-            margin-bottom: 1rem;
+          .header-info h1 {
+            font-size: clamp(1.2rem, 5vw, 1.8rem);
           }
 
-          .header-title h1 {
-            font-size: clamp(1.2rem, 6vw, 1.8rem);
-          }
-
-          .player-container {
-            margin-bottom: 1.5rem;
+          .header-desc {
+            display: none;
           }
 
           .servers-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr;
             gap: 0.8rem;
           }
 
@@ -599,13 +835,12 @@ export default function WatchPage({ item }) {
             padding: 1rem;
           }
 
-          .server-name {
-            font-size: 1rem;
+          .selector-controls {
+            flex-direction: column;
           }
 
-          .controls-inner {
-            gap: 1rem;
-            flex-wrap: wrap;
+          .nav-button {
+            width: 100%;
           }
         }
       `}</style>

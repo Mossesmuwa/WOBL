@@ -1,11 +1,10 @@
 // pages/movies/[slug].js
-// Wobl — Premium Movie & Series Detail Page
-// Real rating ring (not inline text), richer ambient backdrop, scroll
-// reveal on each section, poster hover lift. Cast/trailer/credits logic
-// unchanged from the working version.
+// Wobl — Premium Movie Detail Page (Redesigned)
+// Sophisticated design, premium spacing, smooth animations, visual hierarchy
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { motion } from "framer-motion";
 
 import { getBySlug, getRelated } from "shared/lib/items";
 
@@ -45,9 +44,6 @@ export async function getStaticProps({ params }) {
     if (!item) return { notFound: true };
     const related = (await getRelated(item, 6)) || [];
 
-    // Credits are fetched live client-side via /api/tmdb/credits —
-    // intentionally not fetched here so the page never depends on TMDB
-    // being up at build/revalidate time.
     return { props: { item, related }, revalidate: 3600 };
   } catch (error) {
     console.error("Failed to fetch detail item:", error);
@@ -164,37 +160,58 @@ export default function MovieDetailPage({ item, related }) {
       <Navbar />
 
       <main className="movie-page" style={{ background: W.bg }}>
+        {/* Ambient Backdrop */}
         {backdrop && (
           <div
             className="ambient-backdrop"
-            aria-hidden="true"
             style={{ backgroundImage: `url(${backdrop})` }}
+            aria-hidden="true"
           />
         )}
         {backdrop && <div className="ambient-wash" aria-hidden="true" />}
 
-        <section className="hero">
+        {/* Hero Section */}
+        <motion.section
+          className="hero"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8 }}
+        >
           <div className="hero-inner">
             <div className="movie-identity">
               {poster && (
-                <div className="poster-container">
+                <motion.div
+                  className="poster-container"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.6, delay: 0.1 }}
+                  whileHover={{ y: -8 }}
+                >
                   <img
                     src={poster}
                     alt={`${item.name} poster`}
                     className="poster"
                   />
-                </div>
+                </motion.div>
               )}
 
-              <div className="movie-information">
+              <motion.div
+                className="movie-information"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                {/* Top Actions */}
                 <div className="info-topline">
                   <span className="eyebrow">
                     {item.type === "tv" ? "TV Series" : "Movie"}
                   </span>
                   <div className="actions">
-                    <a
+                    <motion.a
                       href={`/movies/${item.slug}/watch`}
                       className="watch-now-btn"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.98 }}
                     >
                       <svg
                         width="18"
@@ -205,38 +222,62 @@ export default function MovieDetailPage({ item, related }) {
                         <path d="M8 5v14l11-7z" />
                       </svg>
                       Watch Now
-                    </a>
+                    </motion.a>
                     <SaveButton item={item} />
                     <ShareButton item={item} />
                   </div>
                 </div>
 
+                {/* Title & Rating */}
                 <div className="title-rating-row">
                   <h1 className="title">{item.name}</h1>
-                  {item.rating != null && <RatingRing rating={item.rating} />}
-                </div>
-
-                <div className="meta-row">
-                  {item.year && <span>{item.year}</span>}
-                  {item.rating_count > 0 && (
-                    <span>{item.rating_count.toLocaleString()} votes</span>
+                  {item.rating != null && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <RatingRing rating={item.rating} />
+                    </motion.div>
                   )}
                 </div>
 
+                {/* Meta Row */}
+                <div className="meta-row">
+                  {item.year && <span>{item.year}</span>}
+                  {item.rating_count > 0 && (
+                    <span>{item.rating_count.toLocaleString()} ratings</span>
+                  )}
+                </div>
+
+                {/* Genre Pills */}
                 {genres.length > 0 && (
-                  <div className="genre-pills">
-                    {genres.map((g) => (
-                      <span key={g} className="genre-pill">
+                  <motion.div
+                    className="genre-pills"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    {genres.map((g, idx) => (
+                      <motion.span
+                        key={g}
+                        className="genre-pill"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.2 + idx * 0.05 }}
+                      >
                         {g}
-                      </span>
+                      </motion.span>
                     ))}
-                  </div>
+                  </motion.div>
                 )}
 
+                {/* Short Description */}
                 {item.short_desc && (
                   <p className="short-desc">{item.short_desc}</p>
                 )}
 
+                {/* Director Credit */}
                 {item.director && (
                   <div className="director-credit">
                     Directed by{" "}
@@ -245,39 +286,39 @@ export default function MovieDetailPage({ item, related }) {
                     </a>
                   </div>
                 )}
-              </div>
+              </motion.div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
+        {/* Storyline Section */}
         <Reveal>
           <section className="content-section storyline-section">
             <div className="content-inner">
-              <div className="section-heading">
-                <span className="section-eyebrow">Storyline</span>
-                <span className="section-line" />
+              <div className="section-header">
+                <div>
+                  <span className="section-eyebrow">The Story</span>
+                  <h2 className="section-title">Storyline</h2>
+                </div>
               </div>
               {item.long_desc ? (
                 <p className="long-desc">{item.long_desc}</p>
               ) : (
-                <p className="empty-copy">
-                  No storyline is available for this title yet.
-                </p>
+                <p className="empty-copy">No storyline available.</p>
               )}
             </div>
           </section>
         </Reveal>
 
+        {/* Trailer Section */}
         <Reveal delay={0.05}>
           <section className="content-section trailer-section">
             <div className="content-inner trailer-inner">
-              <div className="section-heading">
+              <div className="section-header">
                 <div>
-                  <span className="section-eyebrow">Watch Trailer</span>
+                  <span className="section-eyebrow">Preview</span>
                   <h2 className="section-title">
-                    {item.type === "tv"
-                      ? "Watch the latest trailer"
-                      : "Watch the official trailer"}
+                    {item.type === "tv" ? "Latest Trailer" : "Official Trailer"}
                   </h2>
                 </div>
               </div>
@@ -294,12 +335,15 @@ export default function MovieDetailPage({ item, related }) {
           </section>
         </Reveal>
 
+        {/* Cast Section */}
         <Reveal delay={0.1}>
           <section className="content-section cast-section">
             <div className="content-inner">
-              <div className="section-heading">
-                <span className="section-eyebrow">Cast & Crew</span>
-                <span className="section-line" />
+              <div className="section-header">
+                <div>
+                  <span className="section-eyebrow">Talent</span>
+                  <h2 className="section-title">Cast & Crew</h2>
+                </div>
               </div>
               <CastList
                 cast={credits.cast}
@@ -310,17 +354,20 @@ export default function MovieDetailPage({ item, related }) {
           </section>
         </Reveal>
 
-        {related.length > 0 && (
+        {/* Related Section */}
+        {related && related.length > 0 && (
           <Reveal delay={0.15}>
-            <section className="related-section">
-              <div className="related-container">
-                <div className="section-heading">
-                  <span className="section-eyebrow">You Might Also Like</span>
-                  <span className="section-line" />
+            <section className="content-section related-section">
+              <div className="content-inner">
+                <div className="section-header">
+                  <div>
+                    <span className="section-eyebrow">More to Explore</span>
+                    <h2 className="section-title">Related Titles</h2>
+                  </div>
                 </div>
                 <div className="related-grid">
-                  {related.map((r) => (
-                    <MovieCard key={r.id} item={r} />
+                  {related.map((rel) => (
+                    <MovieCard key={rel.id} item={rel} />
                   ))}
                 </div>
               </div>
@@ -335,388 +382,343 @@ export default function MovieDetailPage({ item, related }) {
         .movie-page {
           position: relative;
           min-height: 100vh;
-          padding-bottom: 7rem;
-          overflow: hidden;
+          overflow-x: hidden;
         }
+
+        /* Ambient Effects */
         .ambient-backdrop {
           position: absolute;
-          z-index: 0;
-          top: -120px;
+          top: 0;
           left: 0;
-          right: 0;
-          height: 780px;
+          width: 100%;
+          height: 100%;
           background-size: cover;
-          background-position: center top;
-          opacity: 0.28;
-          filter: blur(60px) saturate(1.1);
-          transform: scale(1.08);
+          background-position: center;
+          opacity: 0.08;
+          filter: blur(40px);
           pointer-events: none;
-          mask-image: linear-gradient(
-            to bottom,
-            black 0%,
-            rgba(0, 0, 0, 0.6) 45%,
-            transparent 100%
-          );
-          -webkit-mask-image: linear-gradient(
-            to bottom,
-            black 0%,
-            rgba(0, 0, 0, 0.6) 45%,
-            transparent 100%
-          );
+          z-index: 0;
         }
+
         .ambient-wash {
           position: absolute;
-          z-index: 0;
-          top: -120px;
+          top: 0;
           left: 0;
-          right: 0;
-          height: 780px;
+          width: 100%;
+          height: 100%;
           background: radial-gradient(
-            ellipse at 30% 10%,
-            rgba(217, 113, 60, 0.15),
-            transparent 55%
+            ellipse at center,
+            transparent 0%,
+            var(--wobl-bg, #0a0a0a) 100%
           );
           pointer-events: none;
-        }
-        .hero,
-        .content-section,
-        .related-section {
-          position: relative;
           z-index: 1;
         }
+
+        /* Hero Section */
         .hero {
+          position: relative;
+          z-index: 2;
+          padding: 4rem 2rem 3rem;
+        }
+
+        .hero-inner {
           max-width: 1260px;
           margin: 0 auto;
-          padding: 4.5rem 2rem 3.5rem;
         }
+
         .movie-identity {
           display: grid;
-          grid-template-columns: 250px minmax(0, 680px);
+          grid-template-columns: auto 1fr;
           gap: 3rem;
-          align-items: start;
+          align-items: flex-start;
         }
+
         .poster-container {
-          width: 250px;
-          aspect-ratio: 2 / 3;
-          overflow: hidden;
+          flex-shrink: 0;
+          width: 240px;
+          aspect-ratio: 2/3;
           border-radius: 16px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          box-shadow:
-            0 30px 70px rgba(0, 0, 0, 0.5),
-            0 0 0 1px rgba(255, 255, 255, 0.02);
-          transition:
-            transform 0.3s ease,
-            box-shadow 0.3s ease;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          border: 1px solid rgba(245, 158, 11, 0.2);
         }
-        .poster-container:hover {
-          transform: translateY(-4px);
-          box-shadow:
-            0 40px 90px rgba(0, 0, 0, 0.6),
-            0 0 0 1px rgba(255, 255, 255, 0.04);
-        }
+
         .poster {
-          display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
+
         .movie-information {
-          min-width: 0;
-          padding-top: 0.15rem;
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
         }
+
         .info-topline {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 1rem;
-          min-height: 34px;
+          gap: 1.5rem;
         }
-        .eyebrow,
-        .section-eyebrow {
+
+        .eyebrow {
           font-family: var(--wobl-mono, monospace);
           font-size: 0.7rem;
-          font-weight: 500;
-          letter-spacing: 0.14em;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
           color: var(--wobl-amber, #f59e0b);
+          font-weight: 500;
         }
+
         .actions {
           display: flex;
           align-items: center;
           gap: 0.75rem;
         }
+
         .watch-now-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 0.5rem;
-          padding: 0.65rem 1.3rem;
+          padding: 0.7rem 1.4rem;
           background: var(--wobl-amber, #f59e0b);
           color: #0a0a0a;
-          border-radius: 8px;
+          border-radius: 10px;
           font-family: var(--wobl-display, sans-serif);
-          font-size: 0.92rem;
+          font-size: 0.95rem;
           font-weight: 600;
           text-decoration: none;
           cursor: pointer;
           transition: all 0.2s ease;
           border: 1px solid var(--wobl-amber, #f59e0b);
         }
+
         .watch-now-btn:hover {
           background: #e59b00;
           border-color: #e59b00;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25);
+          box-shadow: 0 12px 32px rgba(245, 158, 11, 0.3);
         }
+
+        /* Title & Rating Row */
         .title-rating-row {
           display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 1rem;
-          margin: 0.55rem 0 0.4rem;
+          align-items: flex-start;
+          gap: 2rem;
         }
+
         .title {
-          max-width: 640px;
           margin: 0;
           font-family: var(--wobl-display, sans-serif);
-          font-size: clamp(2.5rem, 5vw, 4.5rem);
-          line-height: 0.98;
-          letter-spacing: -0.04em;
+          font-size: clamp(2.2rem, 6vw, 4rem);
+          font-weight: 700;
+          line-height: 1.1;
+          letter-spacing: -0.02em;
           color: var(--wobl-cream, #fff);
         }
+
+        /* Meta Row */
         .meta-row {
           display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.55rem;
-          margin-bottom: 1.1rem;
+          gap: 1.5rem;
           font-family: var(--wobl-mono, monospace);
-          font-size: 0.78rem;
-          color: var(--wobl-cream-dim, #bbb);
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.6);
         }
-        .meta-row > span + span::before {
-          content: "·";
-          margin-right: 0.55rem;
-          color: rgba(255, 255, 255, 0.35);
+
+        .meta-row span {
+          display: flex;
+          align-items: center;
         }
+
+        /* Genre Pills */
         .genre-pills {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.4rem;
-          margin-bottom: 1.3rem;
+          gap: 0.75rem;
         }
+
         .genre-pill {
-          padding: 0.3rem 0.7rem;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.035);
-          color: var(--wobl-cream-dim, #ccc);
-          font-family: var(--wobl-mono, monospace);
-          font-size: 0.66rem;
-          transition:
-            border-color 0.2s ease,
-            color 0.2s ease;
+          padding: 0.5rem 1rem;
+          border-radius: 8px;
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          background: rgba(245, 158, 11, 0.08);
+          color: var(--wobl-amber, #f59e0b);
+          font-family: var(--wobl-display, sans-serif);
+          font-size: 0.85rem;
+          font-weight: 500;
+          transition: all 0.2s ease;
         }
+
         .genre-pill:hover {
           border-color: var(--wobl-amber, #f59e0b);
-          color: var(--wobl-cream, #fff);
+          background: rgba(245, 158, 11, 0.15);
         }
+
+        /* Descriptions */
         .short-desc {
-          max-width: 62ch;
+          font-size: 1.05rem;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.8);
           margin: 0;
-          color: var(--wobl-cream-dim, #c8c8c8);
-          font-size: 0.98rem;
-          line-height: 1.75;
         }
+
         .director-credit {
-          margin-top: 1.5rem;
-          padding-top: 1.15rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          color: rgba(255, 255, 255, 0.5);
-          font-family: var(--wobl-mono, monospace);
-          font-size: 0.77rem;
+          font-size: 0.95rem;
+          color: rgba(255, 255, 255, 0.6);
         }
+
         .director-credit a {
           color: var(--wobl-amber, #f59e0b);
           text-decoration: none;
+          transition: opacity 0.2s ease;
         }
+
         .director-credit a:hover {
+          opacity: 0.8;
           text-decoration: underline;
         }
+
+        /* Content Sections */
         .content-section {
-          max-width: 1260px;
-          margin: 0 auto;
-          padding: 0 2rem;
+          position: relative;
+          z-index: 2;
+          padding: 3.5rem 2rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
+
         .content-inner {
-          padding: 3rem 0;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .section-heading {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          margin-bottom: 1.25rem;
-        }
-        .section-line {
-          flex: 1;
-          height: 1px;
-          background: rgba(255, 255, 255, 0.06);
-        }
-        .long-desc {
-          max-width: 860px;
-          margin: 0;
-          color: var(--wobl-cream-dim, #c8c8c8);
-          font-size: 1.02rem;
-          line-height: 1.85;
-        }
-        .empty-copy {
-          margin: 0;
-          color: rgba(255, 255, 255, 0.4);
-          font-size: 0.9rem;
-        }
-        .trailer-inner {
-          padding-top: 3.25rem;
-          padding-bottom: 3.75rem;
-        }
-        .trailer-inner .section-heading {
-          align-items: flex-end;
-          margin-bottom: 1.5rem;
-        }
-        .section-title {
-          margin: 0.4rem 0 0;
-          color: var(--wobl-cream, #fff);
-          font-family: var(--wobl-display, sans-serif);
-          font-size: clamp(1.4rem, 2vw, 1.8rem);
-          font-weight: 600;
-          letter-spacing: -0.02em;
-        }
-        .trailer-wrapper {
-          width: min(100%, 1080px);
-        }
-        .cast-section .content-inner {
-          padding-top: 3.25rem;
-        }
-        .related-section {
-          max-width: 1260px;
+          max-width: 1100px;
           margin: 0 auto;
-          padding: 0 2rem;
         }
-        .related-container {
-          padding-top: 3.25rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+        .section-header {
+          margin-bottom: 2.5rem;
         }
+
+        .section-eyebrow {
+          font-family: var(--wobl-mono, monospace);
+          font-size: 0.7rem;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--wobl-amber, #f59e0b);
+          font-weight: 500;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+
+        .section-title {
+          margin: 0;
+          font-family: var(--wobl-display, sans-serif);
+          font-size: clamp(1.5rem, 4vw, 2.2rem);
+          font-weight: 600;
+          line-height: 1.2;
+          letter-spacing: -0.01em;
+          color: var(--wobl-cream, #fff);
+        }
+
+        .long-desc {
+          font-size: 1.05rem;
+          line-height: 1.8;
+          color: rgba(255, 255, 255, 0.75);
+          margin: 0;
+        }
+
+        .empty-copy {
+          font-size: 1rem;
+          color: rgba(255, 255, 255, 0.5);
+          margin: 0;
+          font-style: italic;
+        }
+
+        /* Trailer Section */
+        .trailer-inner {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+        }
+
+        .trailer-wrapper {
+          width: 100%;
+          aspect-ratio: 16 / 9;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        /* Related Grid */
         .related-grid {
           display: grid;
-          grid-template-columns: repeat(6, minmax(0, 1fr));
-          gap: 1.15rem;
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: 1.2rem;
+          margin-top: 2rem;
         }
+
+        /* Responsive */
         @media (max-width: 960px) {
           .hero {
-            padding-top: 3rem;
+            padding: 3rem 2rem 2.5rem;
           }
+
           .movie-identity {
-            grid-template-columns: 210px minmax(0, 1fr);
-            gap: 2rem;
+            grid-template-columns: 1fr;
+            gap: 2.5rem;
           }
+
           .poster-container {
-            width: 210px;
+            width: 200px;
+            margin: 0 auto;
           }
+
           .title {
-            font-size: clamp(2.2rem, 6vw, 3.4rem);
+            font-size: clamp(1.8rem, 5vw, 2.8rem);
           }
-          .related-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-        }
-        @media (max-width: 700px) {
-          .hero {
-            padding: 2rem 1rem 2.5rem;
-          }
-          .movie-identity {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1.75rem;
-          }
-          .poster-container {
-            width: min(230px, 62vw);
-          }
-          .movie-information {
-            width: 100%;
-            text-align: center;
-          }
+
           .info-topline {
-            justify-content: center;
+            flex-direction: column;
+            align-items: flex-start;
           }
+
           .title-rating-row {
             flex-direction: column;
-            align-items: center;
-            gap: 0.75rem;
           }
+        }
+
+        @media (max-width: 640px) {
+          .hero {
+            padding: 2rem 1.5rem;
+          }
+
+          .movie-information {
+            gap: 1.5rem;
+          }
+
+          .poster-container {
+            width: 160px;
+          }
+
           .title {
-            margin-top: 0.65rem;
-            font-size: clamp(2rem, 9vw, 2.7rem);
-            line-height: 1;
-            text-align: center;
+            font-size: clamp(1.5rem, 6vw, 2.2rem);
           }
-          .meta-row {
-            justify-content: center;
-          }
-          .genre-pills {
-            justify-content: center;
-          }
+
           .short-desc {
-            margin: 0 auto;
-            font-size: 0.92rem;
-            line-height: 1.7;
-          }
-          .director-credit {
-            text-align: center;
-          }
-          .content-section {
-            padding-left: 1rem;
-            padding-right: 1rem;
-          }
-          .content-inner {
-            padding-top: 2.4rem;
-            padding-bottom: 2.75rem;
-          }
-          .section-heading {
-            gap: 0.75rem;
-          }
-          .section-eyebrow {
-            white-space: nowrap;
-            font-size: 0.65rem;
-          }
-          .long-desc {
             font-size: 0.95rem;
-            line-height: 1.75;
           }
-          .trailer-inner {
-            padding-top: 2.75rem;
-            padding-bottom: 3rem;
+
+          .content-section {
+            padding: 2.5rem 1.5rem;
           }
-          .trailer-inner .section-heading {
-            display: block;
-          }
+
           .section-title {
-            font-size: 1.35rem;
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
           }
-          .trailer-wrapper {
-            width: 100%;
-          }
-          .related-section {
-            padding-left: 1rem;
-            padding-right: 1rem;
-          }
-          .related-container {
-            padding-top: 2.75rem;
-          }
+
           .related-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.9rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
           }
         }
       `}</style>
