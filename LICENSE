@@ -1,0 +1,117 @@
+```text
+WOBL PROPRIETARY LICENSE
+Version 1.0
+Copyright © 2026 WOBL. All rights reserved.
+
+IMPORTANT
+This software is proprietary to WOBL. It is not open-source software.
+The availability of the source code does not grant permission to use,
+copy, modify, distribute, sublicense, sell, or create derivative works
+from the software except as expressly permitted by this license.
+
+1. OWNERSHIP
+
+The WOBL software, source code, architecture, documentation, visual
+designs, brand assets, logos, trademarks, product concepts, and related
+materials ("WOBL Materials") are owned by WOBL or its applicable
+rights holders.
+
+All rights not expressly granted by this license are reserved.
+
+2. LIMITED PERMISSION
+
+Subject to the terms of this license, you may:
+
+- view the source code;
+- download the source code for personal evaluation;
+- run the software locally for personal, non-commercial evaluation;
+- study the implementation for learning and technical evaluation.
+
+These permissions do not transfer ownership of the WOBL Materials.
+
+3. RESTRICTIONS
+
+You may not, without prior written permission from WOBL:
+
+- use the WOBL Materials to operate a public or commercial service;
+- use the WOBL Materials in a commercial product or application;
+- copy or redistribute the source code or substantial portions of it;
+- modify and publish, distribute, or commercially use derivative works;
+- sublicense or sell the software or any portion of it;
+- incorporate the software into another product or service;
+- use WOBL source code to create a competing discovery platform or
+  substantially similar service;
+- remove or alter copyright, license, trademark, or attribution notices;
+- use WOBL branding, logos, names, or visual identity as your own;
+- imply endorsement, sponsorship, or affiliation with WOBL without
+  written permission.
+
+4. BRAND AND TRADEMARKS
+
+The names "WOBL", "Wobl", WOBL logos, marks, taglines, product names,
+visual identity, and other brand assets are not licensed under this
+license.
+
+No trademark, branding, or other intellectual-property rights are
+granted by your access to the source code.
+
+5. CONTRIBUTIONS
+
+Unless a separate written agreement states otherwise, submitting code,
+documentation, designs, or other contributions to the WOBL project does
+not transfer ownership of those contributions to any third party.
+
+WOBL may establish a separate contributor agreement for future
+contributions.
+
+6. THIRD-PARTY MATERIALS
+
+This license applies only to materials owned or controlled by WOBL.
+
+Third-party libraries, frameworks, APIs, datasets, fonts, images, and
+other dependencies remain subject to their respective licenses and
+terms.
+
+Nothing in this license overrides a valid third-party license.
+
+7. NO WARRANTY
+
+THE SOFTWARE AND ALL WOBL MATERIALS ARE PROVIDED "AS IS", WITHOUT
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+NON-INFRINGEMENT, OR AVAILABILITY.
+
+WOBL IS NOT LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+CONSEQUENTIAL, OR OTHER DAMAGES ARISING FROM THE USE OF THE SOFTWARE
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
+
+8. TERMINATION
+
+Any permission granted under this license automatically terminates if
+you violate its terms.
+
+Upon termination, you must stop using the WOBL Materials and, where
+reasonably applicable, remove copies under your control.
+
+9. WRITTEN PERMISSION
+
+WOBL may grant additional permissions in writing.
+
+If you require permission to use, modify, distribute, commercialize,
+integrate, or otherwise work with the WOBL Materials beyond this
+license, contact the WOBL project owners directly.
+
+10. GOVERNING TERMS
+
+This license is intended to preserve WOBL's ownership and control of
+its software, technology, intellectual property, and brand.
+
+Nothing in this license grants rights beyond those expressly stated.
+
+---
+
+WOBL
+The best pick, not endless browsing.
+
+Copyright © 2026 WOBL. All rights reserved.
+```
