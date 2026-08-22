@@ -192,6 +192,20 @@ export default function MovieDetailPage({ item, related }) {
                     {item.type === "tv" ? "TV Series" : "Movie"}
                   </span>
                   <div className="actions">
+                    <a
+                      href={`/movies/${item.slug}/watch`}
+                      className="watch-now-btn"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      Watch Now
+                    </a>
                     <SaveButton item={item} />
                     <ShareButton item={item} />
                   </div>
@@ -430,7 +444,30 @@ export default function MovieDetailPage({ item, related }) {
         .actions {
           display: flex;
           align-items: center;
+          gap: 0.75rem;
+        }
+        .watch-now-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           gap: 0.5rem;
+          padding: 0.65rem 1.3rem;
+          background: var(--wobl-amber, #f59e0b);
+          color: #0a0a0a;
+          border-radius: 8px;
+          font-family: var(--wobl-display, sans-serif);
+          font-size: 0.92rem;
+          font-weight: 600;
+          text-decoration: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: 1px solid var(--wobl-amber, #f59e0b);
+        }
+        .watch-now-btn:hover {
+          background: #e59b00;
+          border-color: #e59b00;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25);
         }
         .title-rating-row {
           display: flex;
